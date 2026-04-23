@@ -57,6 +57,41 @@ def get_report_rows():
     return [(name, float(amount or 0), acc_room) for name, amount, acc_room in rows]
 
 
+USERREG_FILTER_FIELDS = ("bs", "locality", "state", "language")
+
+
+def get_dashboard_chart_data():
+    locality_rows = list(
+        app_models.UserReg.objects.exclude(locality__isnull=True)
+        .exclude(locality="")
+        .values("locality")
+        .annotate(total=dj_models.Count("sl_no"))
+        .order_by("-total", "locality")[:10]
+    )
+    payment_rows = list(
+        app_models.LocalityWise.objects.exclude(payment_method__isnull=True)
+        .exclude(payment_method="")
+        .values("payment_method")
+        .annotate(total=dj_models.Count("locality"))
+        .order_by("payment_method")
+    )
+    registration_rows = list(
+        app_models.LocalityWise.objects.exclude(locality__isnull=True)
+        .exclude(locality="")
+        .values("locality")
+        .annotate(total=dj_models.Sum("persons_count"))
+        .order_by("-total", "locality")[:10]
+    )
+    return {
+        "locality_chart_labels": [row["locality"] for row in locality_rows],
+        "locality_chart_values": [row["total"] for row in locality_rows],
+        "payment_chart_labels": [row["payment_method"].title() for row in payment_rows],
+        "payment_chart_values": [row["total"] for row in payment_rows],
+        "registration_chart_labels": [row["locality"] for row in registration_rows],
+        "registration_chart_values": [int(row["total"] or 0) for row in registration_rows],
+    }
+
+
 def get_userreg_export_fields():
     return list(app_models.UserReg._meta.fields)
 
@@ -303,6 +338,7 @@ def get_site_urls(request):
 	return [
 		{"label": "Home", "path": reverse("home")},
 		{"label": "Register", "path": reverse("reg")},
+		{"label": "UserReg", "path": reverse("userreg_list")},
 		{"label": "Search", "path": reverse("search")},
 		{"label": "Export page", "path": reverse("export_page")},
 		{"label": "Import page", "path": reverse("import_page")},
@@ -313,6 +349,7 @@ def get_site_urls(request):
 
 def build_common_context(request):
     report_rows = get_report_rows()
+    dashboard_chart_data = get_dashboard_chart_data()
     report_data = {
         "title": "SOT Meeting Report",
         "chart_labels": [row[0] for row in report_rows],
@@ -324,6 +361,12 @@ def build_common_context(request):
         "chart_labels": report_data["chart_labels"],
         "chart_values": report_data["chart_values"],
         "chart_acc_rooms": report_data["chart_acc_rooms"],
+        "locality_chart_labels": dashboard_chart_data["locality_chart_labels"],
+        "locality_chart_values": dashboard_chart_data["locality_chart_values"],
+        "payment_chart_labels": dashboard_chart_data["payment_chart_labels"],
+        "payment_chart_values": dashboard_chart_data["payment_chart_values"],
+        "registration_chart_labels": dashboard_chart_data["registration_chart_labels"],
+        "registration_chart_values": dashboard_chart_data["registration_chart_values"],
         "report_rows": report_rows,
         "site_urls": get_site_urls(request),
     }
@@ -363,6 +406,35 @@ def logout_view(request):
 def home(request):
 	context = build_common_context(request)
 	return render(request, "account/home.html", context)
+
+
+def userreg_list(request):
+    queryset = app_models.UserReg.objects.order_by("sl_no")
+    selected_filters = resolve_userreg_filters(request)
+    filtered_queryset = apply_userreg_filters(queryset, selected_filters)
+    selected_columns = [
+        "sl_no",
+        "name",
+        "bs",
+        "locality",
+        "state",
+        "language",
+        "total_amount",
+        "balance_amount",
+    ]
+    table_headers, table_rows = get_userreg_export_dataset(selected_columns, filtered_queryset)
+
+    context = build_common_context(request)
+    context.update(
+        {
+            "userreg_filter_options": get_userreg_filter_options(selected_filters),
+            "selected_userreg_filters": selected_filters,
+            "userreg_headers": table_headers,
+            "userreg_rows": table_rows,
+            "userreg_count": len(table_rows),
+        }
+    )
+    return render(request, "account/userreg_list.html", context)
 
 
 def normalize_header_name(header):
@@ -927,6 +999,7 @@ def search(request):
             "export_column_options": get_userreg_export_column_options(),
             "selected_export_columns": selected_export_columns,
             "search_summary": search_summary,
+            "paid_localities": get_search_paid_localities(query),
 		}
 	)
 	return render(request, "search.html", context)
@@ -1028,6 +1101,7 @@ def export_pdf(request):
 def locality_register(request):
     context = build_common_context(request)
     locality_summary = None
+    table=app_models.LocalityWise.objects.order_by("locality").values("locality", "state", "persons_count", "total_balance")
 
     if request.method == "POST":
         locality_frm = app_forms.LocalityRegisterForm(request.POST)
@@ -1085,10 +1159,65 @@ def get_locality_register_summary(locality):
 
 def get_paid_locality_list():
     return list(
-        app_models.LocalityWise.objects.filter(total_balance=0)
+        app_models.LocalityWise.objects.exclude(payment_method="pending")
         .order_by("locality")
         .values("locality", "state", "total_paid", "payment_method")
     )
+
+
+def get_search_paid_localities(query=""):
+    queryset = app_models.LocalityWise.objects.exclude(payment_method="pending").order_by("locality")
+    if query:
+        queryset = queryset.filter(
+            Q(locality__icontains=query)
+            | Q(state__icontains=query)
+            | Q(payment_method__icontains=query)
+        )
+    return list(queryset.values("locality", "state", "total_paid", "payment_method"))
+
+
+def get_userreg_filter_options(selected_filters=None):
+    selected_filters = selected_filters or {}
+    options = []
+    base_queryset = app_models.UserReg.objects.order_by("sl_no")
+    for field_name in USERREG_FILTER_FIELDS:
+        values = list(
+            base_queryset.exclude(**{f"{field_name}__isnull": True})
+            .exclude(**{field_name: ""})
+            .order_by(field_name)
+            .values_list(field_name, flat=True)
+            .distinct()
+        )
+        options.append(
+            {
+                "name": field_name,
+                "label": format_field_label(field_name),
+                "values": [
+                    {
+                        "value": value,
+                        "selected": selected_filters.get(field_name) == value,
+                    }
+                    for value in values
+                ],
+            }
+        )
+    return options
+
+
+def resolve_userreg_filters(request):
+    selected_filters = {}
+    for field_name in USERREG_FILTER_FIELDS:
+        selected_value = request.GET.get(field_name, "").strip()
+        if selected_value:
+            selected_filters[field_name] = selected_value
+    return selected_filters
+
+
+def apply_userreg_filters(queryset, selected_filters):
+    filtered_queryset = queryset
+    for field_name, selected_value in selected_filters.items():
+        filtered_queryset = filtered_queryset.filter(**{field_name: selected_value})
+    return filtered_queryset
 
 
 def locality_register_summary(request):

@@ -256,6 +256,47 @@ class SearchSummaryTests(TestCase):
         self.assertEqual(response.context["search_summary"]["current_status"], "Did not pay")
         self.assertEqual(response.context["search_summary"]["status_badge_class"], "text-bg-danger")
 
+    def test_search_page_lists_paid_localities_filtered_by_search_query(self):
+        LocalityWise.objects.create(
+            locality="Chennai",
+            state="Tamil Nadu",
+            persons_count=2,
+            total_paid="250.00",
+            total_balance="0.00",
+            payment_method="cash",
+        )
+        LocalityWise.objects.create(
+            locality="Madurai",
+            state="Tamil Nadu",
+            persons_count=1,
+            total_paid="100.00",
+            total_balance="0.00",
+            payment_method="upi",
+        )
+        LocalityWise.objects.create(
+            locality="Salem",
+            state="Tamil Nadu",
+            persons_count=1,
+            total_paid="0.00",
+            total_balance="10.00",
+            payment_method="pending",
+        )
+
+        response = self.client.get(reverse("search"), {"q": "Chennai", "columns": ["name", "locality"]})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.context["paid_localities"],
+            [
+                {
+                    "locality": "Chennai",
+                    "state": "Tamil Nadu",
+                    "total_paid": Decimal("250.00"),
+                    "payment_method": "cash",
+                }
+            ],
+        )
+
 
 class LocalityRegisterTests(TestCase):
     def setUp(self):
@@ -361,7 +402,7 @@ class LocalityRegisterTests(TestCase):
             state="Tamil Nadu",
             persons_count=5,
             total_paid="385.00",
-            total_balance="0.00",
+            total_balance="40.00",
             payment_method="cash",
         )
 
@@ -379,4 +420,67 @@ class LocalityRegisterTests(TestCase):
                     "payment_method": "cash",
                 }
             ],
+        )
+
+
+class HomeAndUserRegPageTests(TestCase):
+    def setUp(self):
+        UserReg.objects.create(
+            name="Anu",
+            bs="Sister",
+            locality="Chennai",
+            state="Tamil Nadu",
+            language="Tamil",
+            total_amount="100.00",
+            balance_amount="10.00",
+        )
+        UserReg.objects.create(
+            name="Balu",
+            bs="Brother",
+            locality="Madurai",
+            state="Tamil Nadu",
+            language="Tamil",
+            total_amount="120.00",
+            balance_amount="0.00",
+        )
+        LocalityWise.objects.create(
+            locality="Chennai",
+            state="Tamil Nadu",
+            persons_count=1,
+            total_paid="100.00",
+            total_balance="0.00",
+            payment_method="cash",
+        )
+        LocalityWise.objects.create(
+            locality="Madurai",
+            state="Tamil Nadu",
+            persons_count=1,
+            total_paid="0.00",
+            total_balance="120.00",
+            payment_method="pending",
+        )
+
+    def test_home_page_contains_multiple_chart_datasets(self):
+        response = self.client.get(reverse("home"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["payment_chart_labels"], ["Cash", "Pending"])
+        self.assertEqual(response.context["payment_chart_values"], [1, 1])
+        self.assertEqual(response.context["registration_chart_labels"], ["Chennai", "Madurai"])
+        self.assertEqual(response.context["registration_chart_values"], [1, 1])
+        self.assertEqual(response.context["locality_chart_labels"], ["Chennai", "Madurai"])
+        self.assertEqual(response.context["locality_chart_values"], [1, 1])
+
+    def test_userreg_page_filters_by_dropdown_values(self):
+        response = self.client.get(reverse("userreg_list"), {"bs": "Sister", "state": "Tamil Nadu"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["userreg_count"], 1)
+        self.assertEqual(
+            response.context["selected_userreg_filters"],
+            {"bs": "Sister", "state": "Tamil Nadu"},
+        )
+        self.assertEqual(
+            response.context["userreg_rows"],
+            [["1", "Anu", "Sister", "Chennai", "Tamil Nadu", "Tamil", "100.00", "10.00"]],
         )

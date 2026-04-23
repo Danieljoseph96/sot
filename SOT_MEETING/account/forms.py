@@ -18,7 +18,7 @@ class LocalityRegisterForm(LocalityWiseForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         paid_localities = set(
-            LocalityWise.objects.filter(total_balance=0)
+            LocalityWise.objects.exclude(payment_method="pending")
             .values_list("locality", flat=True)
         )
         locality_choices = [("", "Select locality")]

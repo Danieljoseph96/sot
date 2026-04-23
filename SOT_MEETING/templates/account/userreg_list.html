@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+
+{% block title %}UserReg | SOT Meeting{% endblock %}
+
+{% block content %}
+<div class="row g-4 align-items-stretch">
+    <div class="col-12 col-lg-8">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-body p-4">
+                <p class="text-uppercase text-secondary small mb-2">UserReg</p>
+                <h1 class="display-6 fw-semibold mb-3">User registration list</h1>
+                <p class="text-muted mb-4">Filter `UserReg` records by `bs`, `locality`, `state`, and `language` using dropdowns.</p>
+
+                <form method="get" action="{% url 'userreg_list' %}" class="row g-3 mb-4">
+                    {% for filter in userreg_filter_options %}
+                    <div class="col-12 col-md-6 col-xl-3">
+                        <label class="form-label" for="userreg-filter-{{ filter.name }}">{{ filter.label }}</label>
+                        <select class="form-select" id="userreg-filter-{{ filter.name }}" name="{{ filter.name }}">
+                            <option value="">All {{ filter.label }}</option>
+                            {% for value in filter.values %}
+                            <option value="{{ value.value }}" {% if value.selected %}selected{% endif %}>{{ value.value }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% endfor %}
+                    <div class="col-12 d-flex flex-wrap gap-2">
+                        <button type="submit" class="btn btn-primary">Apply filters</button>
+                        <a class="btn btn-outline-secondary" href="{% url 'userreg_list' %}">Reset</a>
+                    </div>
+                </form>
+
+                <div class="table-responsive border rounded p-2 bg-light-subtle">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                        <h2 class="h6 mb-0">Records</h2>
+                        <span class="badge text-bg-light">{{ userreg_count }} row{{ userreg_count|pluralize }}</span>
+                    </div>
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                            <tr>
+                                {% for header in userreg_headers %}
+                                <th>{{ header }}</th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in userreg_rows %}
+                            <tr>
+                                {% for cell in row %}
+                                <td>{{ cell }}</td>
+                                {% endfor %}
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="{{ userreg_headers|length }}" class="text-center text-muted py-4">No `UserReg` rows match the selected filters.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-lg-4">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-body p-4">
+                <h2 class="h5 mb-3">Quick links</h2>
+                <div class="list-group list-group-flush">
+                    {% for site_url in site_urls %}
+                    <a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center px-0" href="{{ site_url.path }}">
+                        <span>{{ site_url.label }}</span>
+                        <small class="text-muted">{{ site_url.path }}</small>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -60,7 +60,7 @@
 	</div>
 
 	<div class="col-12 col-lg-4">
-		<div class="card shadow-sm border-0 h-100">
+		<div class="card shadow-sm border-0 mb-4">
 			<div class="card-body p-4">
 				<h2 class="h5 mb-3">Quick routes</h2>
 				<div class="list-group list-group-flush">
@@ -141,6 +141,34 @@
 							</div>
 						</div>
 					</div>
+				</div>
+			</div>
+		</div>
+
+		<div class="card shadow-sm border-0 h-100">
+			<div class="card-body p-4">
+				<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+					<h2 class="h5 mb-0">Paid localities</h2>
+					<span class="badge text-bg-success">{{ paid_localities|length }}</span>
+				</div>
+				<p class="small text-muted">This list uses the same search term and shows localities with payment method not equal to `pending`.</p>
+				<div class="list-group list-group-flush">
+					{% for paid_locality in paid_localities %}
+					<div class="list-group-item px-0">
+						<div class="d-flex justify-content-between align-items-start gap-2">
+							<div>
+								<div class="fw-semibold text-success">{{ paid_locality.locality }}</div>
+								<div class="small text-muted">
+									{% if paid_locality.state %}{{ paid_locality.state }} | {% endif %}
+									{{ paid_locality.payment_method|title }}
+								</div>
+							</div>
+							<span class="badge text-bg-success">{{ paid_locality.total_paid }}</span>
+						</div>
+					</div>
+					{% empty %}
+					<div class="small text-muted">No paid locality matches this search.</div>
+					{% endfor %}
 				</div>
 			</div>
 		</div>

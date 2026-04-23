@@ -16,6 +16,7 @@
                 <div class="d-flex flex-wrap gap-2">
                     <a class="btn btn-primary" href="{% url 'export_page' %}">Open export page</a>
                     <a class="btn btn-outline-secondary" href="{% url 'import_page' %}">Open import page</a>
+                    <a class="btn btn-outline-secondary" href="{% url 'userreg_list' %}">Open UserReg</a>
                     <a class="btn btn-outline-secondary" href="{% url 'export_xlsx' %}">Download XLSX</a>
                     <a class="btn btn-outline-secondary" href="{% url 'export_pdf' %}">Download PDF</a>
                 </div>
@@ -40,25 +41,59 @@
     </div>
 </div>
 
-<div class="row mt-4">
+<div class="row mt-4 g-4">
+    <div class="col-12 col-xl-6">
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                    <h2 class="h5 mb-0">Payment status by method</h2>
+                    <span class="badge text-bg-light">Chart.js via CDN</span>
+                </div>
+                <p class="text-muted">Shows how many locality summaries are marked with each payment method.</p>
+                <div style="min-height: 320px;">
+                    <canvas id="paymentStatusChart" aria-label="Payment status chart" role="img"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-xl-6">
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                    <h2 class="h5 mb-0">Registration locality wise</h2>
+                    <span class="badge text-bg-light">Top localities</span>
+                </div>
+                <p class="text-muted">Compares locality registration counts from the `LocalityWise` table.</p>
+                <div style="min-height: 320px;">
+                    <canvas id="registrationLocalityChart" aria-label="Registration locality chart" role="img"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="col-12">
         <div class="card shadow-sm border-0">
             <div class="card-body">
                 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-                    <h2 class="h5 mb-0">Chart data loaded from the database</h2>
-                    <span class="badge text-bg-light">Chart.js via CDN</span>
+                    <h2 class="h5 mb-0">UserReg locality wise</h2>
+                    <span class="badge text-bg-light">Top localities</span>
                 </div>
-                <p class="text-muted">The chart below is driven by the same persisted rows used by the export downloads.</p>
+                <p class="text-muted">Shows how many `UserReg` entries are registered in each locality.</p>
                 <div style="min-height: 320px;">
-                    <canvas id="meetingChart" aria-label="Monthly meetings chart" role="img"></canvas>
+                    <canvas id="userregLocalityChart" aria-label="UserReg locality chart" role="img"></canvas>
                 </div>
             </div>
         </div>
     </div>
 </div>
 
-{{ chart_labels|json_script:'chart-labels' }}
-{{ chart_values|json_script:'chart-values' }}
+{{ locality_chart_labels|json_script:'locality-chart-labels' }}
+{{ locality_chart_values|json_script:'locality-chart-values' }}
+{{ payment_chart_labels|json_script:'payment-chart-labels' }}
+{{ payment_chart_values|json_script:'payment-chart-values' }}
+{{ registration_chart_labels|json_script:'registration-chart-labels' }}
+{{ registration_chart_values|json_script:'registration-chart-values' }}
 {% endblock %}
 
 {% block extra_js %}
