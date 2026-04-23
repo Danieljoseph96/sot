@@ -1,0 +1,58 @@
+<nav class="navbar navbar-expand-lg navbar-dark app-navbar sticky-top">
+	<div class="container">
+		<a class="navbar-brand fw-semibold" href="{% url 'home' %}">SOT Meeting</a>
+		<button
+			class="navbar-toggler"
+			type="button"
+			data-bs-toggle="collapse"
+			data-bs-target="#mainNavbar"
+			aria-controls="mainNavbar"
+			aria-expanded="false"
+			aria-label="Toggle navigation"
+		>
+			<span class="navbar-toggler-icon"></span>
+		</button>
+		{% if user.is_authenticated %}
+		<form method="post" action="{% url 'logout' %}" class="d-none d-lg-inline ms-2">
+			{% csrf_token %}
+			<button type="submit" class="btn btn-outline-light btn-sm">Logout</button>
+		</form>
+		{% endif %}
+
+		<div class="collapse navbar-collapse" id="mainNavbar">
+			<ul class="navbar-nav ms-auto mb-2 mb-lg-0">
+				{% if user.is_authenticated %}
+				<li class="nav-item">
+					<a class="nav-link" href="{% url 'home' %}">Home</a>
+				</li>
+				<li class="nav-item">
+					<a class="nav-link" href="{% url 'search' %}">Search</a>
+				</li>
+				<li class="nav-item">
+					<a class="nav-link" href="{% url 'import_page' %}">Import</a>
+				</li>
+				<li class="nav-item">
+					<a class="nav-link" href="{% url 'export_page' %}">Export</a>
+				</li>
+				<li class="nav-item">
+					<a class="nav-link" href="{% url 'export_xlsx' %}">Download XLSX</a>
+				</li>
+				<li class="nav-item">
+					<a class="nav-link" href="{% url 'export_pdf' %}">Download PDF</a>
+				</li>
+				<li class="nav-item d-flex align-items-center ms-lg-2">
+					<span class="navbar-text small text-white-50 me-2">{{ user.username }}</span>
+					<form method="post" action="{% url 'logout' %}" class="d-inline d-lg-none">
+						{% csrf_token %}
+						<button type="submit" class="btn btn-outline-light btn-sm">Logout</button>
+					</form>
+				</li>
+				{% else %}
+				<li class="nav-item">
+					<a class="nav-link" href="{% url 'login' %}">Login</a>
+				</li>
+				{% endif %}
+			</ul>
+		</div>
+	</div>
+</nav>

@@ -1,0 +1,276 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Export | SOT Meeting{% endblock %}
+
+
+{% block content %}
+<div class="row g-4 align-items-stretch">
+    <div class="col-12 col-lg-8">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-body p-4">
+                <p class="text-uppercase text-secondary small mb-2">Export center</p>
+                <h1 class="display-6 fw-semibold mb-3">Download the current report</h1>
+                <p class="text-muted mb-4">Generate the current report as an Excel workbook or a PDF report with custom columns and multiple dropdown filters.</p>
+
+                {% if import_success %}
+                <div class="alert alert-success" role="alert">{{ import_success }}</div>
+                {% endif %}
+                {% if import_error %}
+                <div class="alert alert-danger" role="alert">{{ import_error }}</div>
+                {% if invalid_details %}
+                <div class="alert alert-danger mt-3">
+                    <strong>Invalid Row Details:</strong><br>
+                    {{ invalid_details|safe }}
+                </div>
+                {% endif %}
+                {% endif %}
+                {% if import_warning %}
+                <div class="alert alert-warning" role="alert">{{ import_warning }}</div>
+                {% if invalid_details %}
+                <div class="alert alert-danger mt-3">
+                    <strong>Invalid Row Details:</strong><br>
+                    {{ invalid_details|safe }}
+                </div>
+                {% endif %}
+                {% endif %}
+
+                <hr class="my-4" />
+
+                <h2 class="h5 mb-3">Customize export</h2>
+                <form method="get" action="{% url 'export_page' %}" class="mb-4">
+                    <p class="small text-muted mb-3">Create one or more dropdown filter levels, then click <strong>Filter Preview</strong> to update the table before exporting.</p>
+
+                    <h3 class="h6 mb-3">Filters</h3>
+                    <div id="export-filter-rows" class="d-grid gap-3 mb-3">
+                        {% for filter_row in selected_export_filter_rows %}
+                        <div class="border rounded p-3 bg-light-subtle export-filter-row">
+                            <div class="row g-2 align-items-end">
+                                <div class="col-12 col-md-5">
+                                    <label class="form-label">Filter Field</label>
+                                    <select class="form-select export-filter-field" name="filter_field">
+                                        <option value="">Select field</option>
+                                        {% for filter in export_filter_options %}
+                                        <option value="{{ filter.name }}" {% if filter.name == filter_row.field %}selected{% endif %}>{{ filter.label }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-12 col-md-5">
+                                    <label class="form-label">Filter Value</label>
+                                    <select class="form-select export-filter-value" name="filter_value" data-selected-value="{{ filter_row.value }}">
+                                        <option value="">Select value</option>
+                                    </select>
+                                </div>
+                                <div class="col-12 col-md-2 d-grid">
+                                    <button type="button" class="btn btn-outline-danger export-remove-filter">Remove</button>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="d-flex flex-wrap gap-2 mb-4">
+                        <button type="button" class="btn btn-outline-primary" id="add-export-filter">Add New Filter</button>
+                    </div>
+
+                    <h3 class="h6 mb-3">Columns</h3>
+                    <div class="row g-2">
+                        {% for column in export_column_options %}
+                        <div class="col-12 col-sm-6 col-xl-4">
+                            <div class="form-check">
+                                <input
+                                    class="form-check-input"
+                                    type="checkbox"
+                                    id="export-column-{{ column.name }}"
+                                    name="columns"
+                                    value="{{ column.name }}"
+                                    {% if column.name in selected_export_columns %}checked{% endif %}
+                                />
+                                <label class="form-check-label" for="export-column-{{ column.name }}">{{ column.label }}</label>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="d-flex flex-wrap gap-2 mt-3">
+                        <button type="submit" class="btn btn-outline-dark">Filter Preview</button>
+                        <button
+                            type="submit"
+                            class="btn btn-success"
+                            formaction="{% url 'export_xlsx' %}"
+                            formmethod="get"
+                        >
+                            Download XLSX
+                        </button>
+                        <button
+                            type="submit"
+                            class="btn btn-danger"
+                            formaction="{% url 'export_pdf' %}"
+                            formmethod="get"
+                        >
+                            Download PDF
+                        </button>
+                        <a class="btn btn-outline-secondary" href="{% url 'export_page' %}">Reset to all columns</a>
+                        <a class="btn btn-outline-secondary" href="{% url 'home' %}">Back to dashboard</a>
+                    </div>
+                    <p class="small text-muted mt-2 mb-0">Preview, `/export/xlsx/`, and `/export/pdf/` all use the same selected columns and dropdown filter conditions from this form.</p>
+                </form>
+
+                <div class="table-responsive border rounded p-2 bg-light-subtle mb-4">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                        <h3 class="h6 mb-0">Export preview</h3>
+                        <div class="d-flex flex-wrap gap-2">
+                            <span class="badge text-bg-light">{{ export_total_count }} row{{ export_total_count|pluralize }} total</span>
+                            <span class="badge text-bg-light">{{ export_active_filter_count }} filter{{ export_active_filter_count|pluralize }} active</span>
+                        </div>
+                    </div>
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                            <tr>
+                                {% for header in export_headers %}
+                                <th>{{ header }}</th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in export_preview_rows %}
+                            <tr>
+                                {% for cell in row %}
+                                <td>{{ cell }}</td>
+                                {% endfor %}
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="{{ export_headers|length }}" class="text-center text-muted py-4">No export rows available.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% if export_total_count > export_preview_count %}
+                    <p class="small text-muted mt-2 mb-0">Showing first {{ export_preview_count }} rows in preview. Excel and PDF downloads include all filtered rows.</p>
+                    {% endif %}
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-lg-4">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-body p-4">
+                <h2 class="h5 mb-3">Quick links</h2>
+                <div class="list-group list-group-flush">
+                    {% for site_url in site_urls %}
+                    <a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center px-0" href="{{ site_url.path }}">
+                        <span>{{ site_url.label }}</span>
+                        <small class="text-muted">{{ site_url.path }}</small>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{{ chart_labels|json_script:'chart-labels' }}
+{{ chart_values|json_script:'chart-values' }}
+{{ export_filter_options|json_script:'export-filter-options' }}
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/chart-init.js' %}"></script>
+<script>
+    (function () {
+        var filterOptions = JSON.parse(document.getElementById('export-filter-options').textContent);
+        var filterRows = document.getElementById('export-filter-rows');
+        var addButton = document.getElementById('add-export-filter');
+
+        function getValuesForField(fieldName) {
+            var match = filterOptions.find(function (option) {
+                return option.name === fieldName;
+            });
+            return match ? match.values : [];
+        }
+
+        function populateValueSelect(row) {
+            var fieldSelect = row.querySelector('.export-filter-field');
+            var valueSelect = row.querySelector('.export-filter-value');
+            var selectedValue = valueSelect.getAttribute('data-selected-value') || '';
+            var values = getValuesForField(fieldSelect.value);
+
+            valueSelect.innerHTML = '';
+            var placeholder = document.createElement('option');
+            placeholder.value = '';
+            placeholder.textContent = 'Select value';
+            valueSelect.appendChild(placeholder);
+
+            values.forEach(function (value) {
+                var option = document.createElement('option');
+                option.value = value;
+                option.textContent = value;
+                if (value === selectedValue) {
+                    option.selected = true;
+                }
+                valueSelect.appendChild(option);
+            });
+        }
+
+        function wireRow(row) {
+            var fieldSelect = row.querySelector('.export-filter-field');
+            var valueSelect = row.querySelector('.export-filter-value');
+            var removeButton = row.querySelector('.export-remove-filter');
+
+            populateValueSelect(row);
+
+            fieldSelect.addEventListener('change', function () {
+                valueSelect.setAttribute('data-selected-value', '');
+                populateValueSelect(row);
+            });
+
+            valueSelect.addEventListener('change', function () {
+                valueSelect.setAttribute('data-selected-value', valueSelect.value);
+            });
+
+            removeButton.addEventListener('click', function () {
+                if (filterRows.children.length === 1) {
+                    row.querySelector('.export-filter-field').value = '';
+                    valueSelect.setAttribute('data-selected-value', '');
+                    populateValueSelect(row);
+                    return;
+                }
+                row.remove();
+            });
+        }
+
+        function createRow() {
+            var wrapper = document.createElement('div');
+            wrapper.className = 'border rounded p-3 bg-light-subtle export-filter-row';
+            wrapper.innerHTML = `
+                <div class="row g-2 align-items-end">
+                    <div class="col-12 col-md-5">
+                        <label class="form-label">Filter Field</label>
+                        <select class="form-select export-filter-field" name="filter_field">
+                            <option value="">Select field</option>
+                            ${filterOptions.map(function (filter) {
+                                return '<option value="' + filter.name + '">' + filter.label + '</option>';
+                            }).join('')}
+                        </select>
+                    </div>
+                    <div class="col-12 col-md-5">
+                        <label class="form-label">Filter Value</label>
+                        <select class="form-select export-filter-value" name="filter_value" data-selected-value="">
+                            <option value="">Select value</option>
+                        </select>
+                    </div>
+                    <div class="col-12 col-md-2 d-grid">
+                        <button type="button" class="btn btn-outline-danger export-remove-filter">Remove</button>
+                    </div>
+                </div>
+            `;
+            wireRow(wrapper);
+            filterRows.appendChild(wrapper);
+        }
+
+        Array.prototype.forEach.call(filterRows.querySelectorAll('.export-filter-row'), wireRow);
+        addButton.addEventListener('click', createRow);
+    })();
+</script>
+{% endblock %}

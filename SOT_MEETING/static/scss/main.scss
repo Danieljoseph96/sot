@@ -1,0 +1,27 @@
+$primary: #0d6efd;
+$nav-bg: #1f2a44;
+$page-bg: #f4f6fb;
+
+body {
+    background: $page-bg;
+    color: #212529;
+    min-height: 100vh;
+}
+
+.app-navbar {
+    background: linear-gradient(120deg, $nav-bg, darken($nav-bg, 8%));
+}
+
+.card {
+    border-radius: 14px;
+}
+
+.ajax-result {
+    font-size: 0.85rem;
+    border-radius: 10px;
+    background: #0b1220;
+    color: #e6edf7;
+    padding: 12px;
+    min-height: 90px;
+    white-space: pre-wrap;
+}

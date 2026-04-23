@@ -1,0 +1,41 @@
+body {
+    background: #edeff0;   /* Sky Blue */
+    color: #212529;
+    min-height: 100vh;
+}
+
+.app-navbar {
+    background: linear-gradient(120deg, #1650c4, #29a7a7);
+}
+
+.app-navbar .navbar-brand {
+    letter-spacing: 0.3px;
+}
+
+.app-navbar .nav-link {
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.app-navbar .nav-link:hover,
+.app-navbar .nav-link.active {
+    color: #ffffff;
+}
+
+.card {
+    border-radius: 14px;
+    background: #ffffff;
+}
+
+#meetingChart {
+    min-height: 320px;
+}
+
+.ajax-result {
+    font-size: 0.85rem;
+    border-radius: 10px;
+    background: #d9f3ff;
+    color: #003049;
+    padding: 12px;
+    min-height: 90px;
+    white-space: pre-wrap;
+}

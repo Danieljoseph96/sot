@@ -1,0 +1,154 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Import | SOT Meeting{% endblock %}
+
+{% block content %}
+<div class="row g-4 align-items-stretch">
+    <div class="col-12 col-lg-8">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-body p-4">
+                <p class="text-uppercase text-secondary small mb-2">Import center</p>
+                <h1 class="display-6 fw-semibold mb-3">Upload data from Excel</h1>
+                <p class="text-muted mb-4">Load an `.xlsx` file, preview the parsed rows, and then upload valid records into the database.</p>
+
+                {% if import_success %}
+                <div class="alert alert-success" role="alert">{{ import_success }}</div>
+                {% endif %}
+                {% if import_error %}
+                <div class="alert alert-danger" role="alert">{{ import_error }}</div>
+                {% endif %}
+                {% if import_warning %}
+                <div class="alert alert-warning" role="alert">{{ import_warning }}</div>
+                {% endif %}
+                {% if invalid_details %}
+                <div class="alert alert-danger mt-3">
+                    <strong>Invalid Row Details:</strong><br>
+                    {{ invalid_details|safe }}
+                </div>
+                {% endif %}
+
+                <hr class="my-4" />
+
+                <h2 class="h5 mb-3">Import from Excel</h2>
+                <form method="post" action="{% url 'import_xlsx' %}" enctype="multipart/form-data" class="row g-2 align-items-end">
+                    {% csrf_token %}
+                    <div class="col-12 col-md-8">
+                        <label for="xlsx_file" class="form-label">Upload .xlsx file</label>
+                        <input id="xlsx_file" class="form-control" type="file" name="xlsx_file" accept=".xlsx" required />
+                    </div>
+                    <div class="col-12 col-md-4 d-grid">
+                        <button type="submit" name="action" value="preview" class="btn btn-success">Load Excel</button>
+                    </div>
+
+                    <div class="col-12 col-md-4">
+                        <div class="form-check mt-2">
+                            <input
+                                class="form-check-input"
+                                type="checkbox"
+                                id="has_table_title_row"
+                                name="has_table_title_row"
+                                {% if import_options.has_table_title_row %}checked{% endif %}
+                            />
+                            <label class="form-check-label" for="has_table_title_row">Row 1 is table title</label>
+                        </div>
+                    </div>
+
+                    <div class="col-12 col-md-4">
+                        <div class="form-check mt-2">
+                            <input
+                                class="form-check-input"
+                                type="checkbox"
+                                id="has_header_row"
+                                name="has_header_row"
+                                value="on"
+                                checked
+                                disabled
+                            />
+                            <label class="form-check-label" for="has_header_row">Row 1 is always header (not evaluated)</label>
+                        </div>
+                    </div>
+                </form>
+                <p class="small text-muted mt-2 mb-0">Header names are matched with `UserReg` model fields. Example: `name`, `locality`, `state`, `language`, `total_amount`, `balance_amount`.</p>
+
+                {% if import_preview_rows %}
+                <div class="mt-4">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                        <h3 class="h6 mb-0">Preview sheet: {{ import_sheet_name }}</h3>
+                        <span class="badge text-bg-light">{{ preview_count }} row{{ preview_count|pluralize }}</span>
+                    </div>
+
+                    {% if import_table_name %}
+                    <p class="small text-muted mb-2">Detected table title: <strong>{{ import_table_name }}</strong></p>
+                    {% endif %}
+
+                    <div class="table-responsive border rounded p-2 bg-light-subtle">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    {% for header in import_header_row %}
+                                    <th>{{ header }}</th>
+                                    {% endfor %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in import_preview_rows %}
+                                <tr>
+                                    {% for cell in row.1 %}
+                                    <td>{{ cell }}</td>
+                                    {% endfor %}
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <form method="post" action="{% url 'import_xlsx' %}" class="mt-3">
+                        {% csrf_token %}
+                        <div class="row g-2 mb-3">
+                            <div class="col-12 col-md-6">
+                                <label class="form-label" for="import_db_name">Upload batch name (optional)</label>
+                                <input
+                                    id="import_db_name"
+                                    type="text"
+                                    class="form-control"
+                                    name="import_db_name"
+                                    value="{{ import_db_name }}"
+                                    placeholder="example_april_upload"
+                                />
+                            </div>
+                        </div>
+
+                        <button type="submit" name="action" value="upload" class="btn btn-primary">Upload to DB</button>
+                        <span class="small text-muted ms-2">Rows with duplicate data inside the file or already in the database are skipped with warning.</span>
+                    </form>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-lg-4">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-body p-4">
+                <h2 class="h5 mb-3">Quick links</h2>
+                <div class="list-group list-group-flush">
+                    {% for site_url in site_urls %}
+                    <a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center px-0" href="{{ site_url.path }}">
+                        <span>{{ site_url.label }}</span>
+                        <small class="text-muted">{{ site_url.path }}</small>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{{ chart_labels|json_script:'chart-labels' }}
+{{ chart_values|json_script:'chart-values' }}
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/chart-init.js' %}"></script>
+{% endblock %}

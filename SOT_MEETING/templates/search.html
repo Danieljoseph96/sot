@@ -1,0 +1,194 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Search | SOT Meeting{% endblock %}
+
+{% block content %}
+<div class="row g-4 align-items-stretch">
+	<div class="col-12 col-lg-8">
+		<div class="card shadow-sm border-0 h-100">
+			<div class="card-body p-4">
+				<p class="text-uppercase text-secondary small mb-2">Search</p>
+				<h1 class="display-6 fw-semibold mb-3">Find report records</h1>
+				<p class="text-muted mb-4">Search by locality, name, state, or numeric amount. If the query matches a locality, the page also shows locality totals and payment status.</p>
+
+				<form class="row g-2 mb-4" method="get" action="{% url 'search' %}">
+					<div class="col-12 col-md-8">
+						<input
+							type="search"
+							class="form-control form-control-lg"
+							name="q"
+							value="{{ search_query }}"
+							placeholder="Search month or value, for example Jan or 15"
+						/>
+					</div>
+					<div class="col-12 col-md-4 d-grid">
+						<button class="btn btn-primary btn-lg" type="submit">Search</button>
+					</div>
+
+                    <div class="col-12">
+                        <div class="border rounded p-3 bg-light-subtle">
+                            <div class="row g-2">
+                                {% for column in export_column_options %}
+                                <div class="col-12 col-sm-6 col-xl-4">
+                                    <div class="form-check">
+                                        <input
+                                            class="form-check-input"
+                                            type="checkbox"
+                                            id="search-column-{{ column.name }}"
+                                            name="columns"
+                                            value="{{ column.name }}"
+                                            {% if column.name in selected_export_columns %}checked{% endif %}
+                                        />
+                                        <label class="form-check-label" for="search-column-{{ column.name }}">{{ column.label }}</label>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            <p class="small text-muted mt-2 mb-0">Choose which `UserReg` model columns to show in search results.</p>
+                        </div>
+                    </div>
+				</form>
+
+				<div class="d-flex flex-wrap gap-2">
+					<a class="btn btn-outline-secondary" href="{% url 'home' %}">Back to dashboard</a>
+					<a class="btn btn-outline-secondary" href="{% url 'export_page' %}">Open export page</a>
+					<a class="btn btn-outline-secondary" href="{% url 'import_page' %}">Open import page</a>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="col-12 col-lg-4">
+		<div class="card shadow-sm border-0 h-100">
+			<div class="card-body p-4">
+				<h2 class="h5 mb-3">Quick routes</h2>
+				<div class="list-group list-group-flush">
+					{% for site_url in site_urls %}
+					<a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center px-0" href="{{ site_url.path }}">
+						<span>{{ site_url.label }}</span>
+						<small class="text-muted">{{ site_url.path }}</small>
+					</a>
+					{% endfor %}
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+
+{% if search_summary %}
+<div class="row mt-4">
+	<div class="col-12">
+		<div class="card shadow-sm border-0">
+			<div class="card-body">
+				<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+					<h2 class="h5 mb-0">Locality summary</h2>
+					<span class="badge {{ search_summary.status_badge_class }}">{{ search_summary.current_status }}</span>
+				</div>
+				<div class="row g-3">
+					<div class="col-12 col-md-4 col-xl-3">
+						<div class="border rounded p-3 h-100 bg-light-subtle">
+							<div class="small text-muted">Locality</div>
+							<div class="fw-semibold">{{ search_summary.locality }}</div>
+						</div>
+					</div>
+					<div class="col-6 col-md-4 col-xl-3">
+						<div class="border rounded p-3 h-100 bg-light-subtle">
+							<div class="small text-muted">Total Sister</div>
+							<div class="fs-5 fw-semibold">{{ search_summary.total_sister }}</div>
+						</div>
+					</div>
+					<div class="col-6 col-md-4 col-xl-3">
+						<div class="border rounded p-3 h-100 bg-light-subtle">
+							<div class="small text-muted">Total Brother</div>
+							<div class="fs-5 fw-semibold">{{ search_summary.total_brother }}</div>
+						</div>
+					</div>
+					<div class="col-6 col-md-4 col-xl-3">
+						<div class="border rounded p-3 h-100 bg-light-subtle">
+							<div class="small text-muted">Teenager</div>
+							<div class="fs-5 fw-semibold">{{ search_summary.total_teenager }}</div>
+						</div>
+					</div>
+					<div class="col-6 col-md-4 col-xl-3">
+						<div class="border rounded p-3 h-100 bg-light-subtle">
+							<div class="small text-muted">People</div>
+							<div class="fs-5 fw-semibold">{{ search_summary.total_people }}</div>
+						</div>
+					</div>
+					<div class="col-6 col-md-4 col-xl-3">
+						<div class="border rounded p-3 h-100 bg-light-subtle">
+							<div class="small text-muted">Total Amount</div>
+							<div class="fs-5 fw-semibold">{{ search_summary.total_amount_sum }}</div>
+						</div>
+					</div>
+					<div class="col-6 col-md-4 col-xl-3">
+						<div class="border rounded p-3 h-100 bg-light-subtle">
+							<div class="small text-muted">Balance Amount</div>
+							<div class="fs-5 fw-semibold">{{ search_summary.balance_amount_sum }}</div>
+						</div>
+					</div>
+					<div class="col-6 col-md-4 col-xl-3">
+						<div class="border rounded p-3 h-100 bg-light-subtle">
+							<div class="small text-muted">Current Status</div>
+							<div class="fw-semibold {% if search_summary.current_status == 'Paid' %}text-success{% else %}text-danger{% endif %}">{{ search_summary.current_status }}</div>
+							<div class="small text-muted mt-1">
+								{% if search_summary.has_locality_summary %}
+								Based on `LocalityWise.payment_method`.
+								{% else %}
+								No locality_summary record found.
+								{% endif %}
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+{% endif %}
+
+<div class="row mt-4">
+	<div class="col-12">
+		<div class="card shadow-sm border-0">
+			<div class="card-body">
+				<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+					<h2 class="h5 mb-0">Search results</h2>
+					<span class="badge text-bg-light">{{ result_count }} match{{ result_count|pluralize }}</span>
+				</div>
+
+				{% if search_query %}
+				<p class="text-muted">Showing results for “{{ search_query }}”.</p>
+				{% else %}
+				<p class="text-muted">Enter a query above to filter the report table.</p>
+				{% endif %}
+
+				<div class="table-responsive">
+					<table class="table align-middle mb-0">
+						<thead>
+							<tr>
+								{% for header in search_headers %}
+								<th>{{ header }}</th>
+								{% endfor %}
+							</tr>
+						</thead>
+						<tbody>
+							{% for row in search_results %}
+							<tr>
+                                {% for cell in row %}
+								<td>{{ cell }}</td>
+                                {% endfor %}
+							</tr>
+							{% empty %}
+							<tr>
+								<td colspan="{{ search_headers|length }}" class="text-center text-muted py-4">No matches found.</td>
+							</tr>
+							{% endfor %}
+						</tbody>
+					</table>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+{% endblock %}

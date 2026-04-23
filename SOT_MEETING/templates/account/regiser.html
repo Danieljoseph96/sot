@@ -1,0 +1,199 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Locality Register | SOT Meeting{% endblock %}
+
+{% block content %}
+<div class="row g-4 align-items-stretch">
+    <div class="col-12 col-lg-8">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-body p-4">
+                <p class="text-uppercase text-secondary small mb-2">Register</p>
+                <h1 class="display-6 fw-semibold mb-3">Locality register form</h1>
+                <p class="text-muted mb-4">Choose an unpaid locality from `UserReg` to auto-load the summary. Paid localities are listed separately and hidden from the dropdown.</p>
+
+                <form method="post" action="{% url 'reg' %}" class="row g-3">
+                    {% csrf_token %}
+                    <div class="col-12 col-md-6">
+                        <label class="form-label" for="{{ locality_frm.locality.id_for_label }}">{{ locality_frm.locality.label }}</label>
+                        {{ locality_frm.locality }}
+                        {% if locality_frm.locality.errors %}
+                        <div class="text-danger small mt-1">{{ locality_frm.locality.errors|join:", " }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label class="form-label" for="{{ locality_frm.state.id_for_label }}">{{ locality_frm.state.label }}</label>
+                        {{ locality_frm.state }}
+                        {% if locality_frm.state.errors %}
+                        <div class="text-danger small mt-1">{{ locality_frm.state.errors|join:", " }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label class="form-label" for="{{ locality_frm.persons_count.id_for_label }}">{{ locality_frm.persons_count.label }}</label>
+                        {{ locality_frm.persons_count }}
+                        {% if locality_frm.persons_count.errors %}
+                        <div class="text-danger small mt-1">{{ locality_frm.persons_count.errors|join:", " }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="col-12">
+                        <div class="border rounded p-3 bg-light-subtle">
+                            <div class="row g-3">
+                                <div class="col-6 col-md-3">
+                                    <label class="form-label" for="summary-brother-count">Brother Count</label>
+                                    <input id="summary-brother-count" type="text" class="form-control" value="{% if locality_register_summary %}{{ locality_register_summary.brother_count }}{% endif %}" readonly />
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <label class="form-label" for="summary-sister-count">Sister Count</label>
+                                    <input id="summary-sister-count" type="text" class="form-control" value="{% if locality_register_summary %}{{ locality_register_summary.sister_count }}{% endif %}" readonly />
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <label class="form-label" for="summary-teenager-count">Teenager Count</label>
+                                    <input id="summary-teenager-count" type="text" class="form-control" value="{% if locality_register_summary %}{{ locality_register_summary.teenager_count }}{% endif %}" readonly />
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <label class="form-label" for="summary-children-count">Children Count</label>
+                                    <input id="summary-children-count" type="text" class="form-control" value="{% if locality_register_summary %}{{ locality_register_summary.children_count }}{% endif %}" readonly />
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <label class="form-label" for="summary-infant-count">Infant Count</label>
+                                    <input id="summary-infant-count" type="text" class="form-control" value="{% if locality_register_summary %}{{ locality_register_summary.infant_count }}{% endif %}" readonly />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-12 col-md-4">
+                        <label class="form-label" for="{{ locality_frm.total_balance.id_for_label }}">{{ locality_frm.total_balance.label }}</label>
+                        {{ locality_frm.total_balance }}
+                        <div class="form-text">Auto-loaded from `UserReg.balance_amount` sum.</div>
+                        {% if locality_frm.total_balance.errors %}
+                        <div class="text-danger small mt-1">{{ locality_frm.total_balance.errors|join:", " }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label" for="{{ locality_frm.total_paid.id_for_label }}">{{ locality_frm.total_paid.label }}</label>
+                        {{ locality_frm.total_paid }}
+                        <div class="form-text">Enter the amount paid for this locality.</div>
+                        {% if locality_frm.total_paid.errors %}
+                        <div class="text-danger small mt-1">{{ locality_frm.total_paid.errors|join:", " }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="col-12 col-md-6">
+                        <label class="form-label" for="{{ locality_frm.payment_method.id_for_label }}">{{ locality_frm.payment_method.label }}</label>
+                        {{ locality_frm.payment_method }}
+                        {% if locality_frm.payment_method.errors %}
+                        <div class="text-danger small mt-1">{{ locality_frm.payment_method.errors|join:", " }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label" for="{{ locality_frm.remarks.id_for_label }}">{{ locality_frm.remarks.label }}</label>
+                        {{ locality_frm.remarks }}
+                        {% if locality_frm.remarks.errors %}
+                        <div class="text-danger small mt-1">{{ locality_frm.remarks.errors|join:", " }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-12 d-flex flex-wrap gap-2 mt-2">
+                        <button type="submit" class="btn btn-primary">Save locality</button>
+                        <a class="btn btn-outline-secondary" href="{% url 'home' %}">Back to dashboard</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-lg-4">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-body p-4">
+                <h2 class="h5 mb-3">Paid localities</h2>
+                <div class="list-group list-group-flush mb-4">
+                    {% for paid_locality in paid_localities %}
+                    <div class="list-group-item px-0">
+                        <div class="fw-semibold">{{ paid_locality.locality }}</div>
+                        <div class="small text-muted">
+                            {% if paid_locality.state %}{{ paid_locality.state }} | {% endif %}
+                            Paid: {{ paid_locality.total_paid }} | {{ paid_locality.payment_method|title }}
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="text-muted small">No fully paid localities yet.</div>
+                    {% endfor %}
+                </div>
+
+                <h2 class="h5 mb-3">Quick links</h2>
+                <div class="list-group list-group-flush">
+                    {% for site_url in site_urls %}
+                    <a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center px-0" href="{{ site_url.path }}">
+                        <span>{{ site_url.label }}</span>
+                        <small class="text-muted">{{ site_url.path }}</small>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/chart-init.js' %}"></script>
+<script>
+    (function () {
+        var localityField = document.getElementById('{{ locality_frm.locality.id_for_label }}');
+        var stateField = document.getElementById('{{ locality_frm.state.id_for_label }}');
+        var personsCountField = document.getElementById('{{ locality_frm.persons_count.id_for_label }}');
+        var totalBalanceField = document.getElementById('{{ locality_frm.total_balance.id_for_label }}');
+        var brotherCountField = document.getElementById('summary-brother-count');
+        var sisterCountField = document.getElementById('summary-sister-count');
+        var teenagerCountField = document.getElementById('summary-teenager-count');
+        var childrenCountField = document.getElementById('summary-children-count');
+        var infantCountField = document.getElementById('summary-infant-count');
+
+        if (!localityField) {
+            return;
+        }
+
+        function setSummary(summary) {
+            stateField.value = summary.state || '';
+            personsCountField.value = summary.persons_count || 0;
+            totalBalanceField.value = summary.balance_amount_sum || '0';
+            brotherCountField.value = summary.brother_count || 0;
+            sisterCountField.value = summary.sister_count || 0;
+            teenagerCountField.value = summary.teenager_count || 0;
+            childrenCountField.value = summary.children_count || 0;
+            infantCountField.value = summary.infant_count || 0;
+        }
+
+        function clearSummary() {
+            setSummary({
+                state: '',
+                persons_count: '',
+                balance_amount_sum: '',
+                brother_count: '',
+                sister_count: '',
+                children_count: '',
+                infant_count: '',
+                teenager_count: '',
+            });
+        }
+
+        localityField.addEventListener('change', function () {
+            if (!localityField.value) {
+                clearSummary();
+                return;
+            }
+
+            fetch('{% url "locality_register_summary" %}?locality=' + encodeURIComponent(localityField.value))
+                .then(function (response) {
+                    if (!response.ok) {
+                        throw new Error('Request failed');
+                    }
+                    return response.json();
+                })
+                .then(setSummary)
+                .catch(clearSummary);
+        });
+    })();
+</script>
+{% endblock %}
