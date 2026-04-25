@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .views import locality_register, locality_register_summary, export_page, export_pdf, export_xlsx, home, import_page, import_xlsx, login_view, logout_view, search, userreg_list
+from .views import idcard,query_export_pdf,query,locality_register, locality_register_summary, export_page, export_pdf, export_xlsx, home, import_page, import_xlsx, login_view, logout_view, search, userreg_list
 
 urlpatterns = [
     path("login/", login_view, name="login"),
@@ -15,4 +15,7 @@ urlpatterns = [
     path("import/xlsx/", import_xlsx, name="import_xlsx"),
     path("export/xlsx/", export_xlsx, name="export_xlsx"),
     path("export/pdf/", export_pdf, name="export_pdf"),
+    path('query/',query, name='query'),
+    path("query/export-pdf/", query_export_pdf, name="query_export_pdf"),
+    path('idcard/',idcard, name='idcard'),
 ]

@@ -37,9 +37,9 @@ class ExportColumnTests(TestCase):
             total_amount="300.00",
             balance_amount="25.00",
         )
-        UserReg.objects.filter(name="Alice").update(acc_room="xx yy zz")
-        UserReg.objects.filter(name="Bala").update(acc_room="aa bb")
-        UserReg.objects.filter(name="Carol").update(acc_room="xx cc")
+        UserReg.objects.filter(name="Alice").update(acc_on_1_2="xx yy zz")
+        UserReg.objects.filter(name="Bala").update(acc_on_1_2="aa bb")
+        UserReg.objects.filter(name="Carol").update(acc_on_1_2="xx cc")
 
     def test_export_page_uses_selected_columns(self):
         response = self.client.get(
@@ -144,21 +144,21 @@ class ExportColumnTests(TestCase):
         )
         self.assertEqual(response.context["export_total_count"], 2)
 
-    def test_export_page_acc_room_filter_uses_first_value_before_space(self):
+    def test_export_page_acc_on_1_2_filter_uses_first_value_before_space(self):
         response = self.client.get(
             reverse("export_page"),
             {
-                "columns": ["name", "acc_room"],
-                "filter_field": ["acc_room"],
+                "columns": ["name", "acc_on_1_2"],
+                "filter_field": ["acc_on_1_2"],
                 "filter_value": ["xx"],
             },
         )
 
         self.assertEqual(response.status_code, 200)
-        acc_room_filter = next(
-            option for option in response.context["export_filter_options"] if option["name"] == "acc_room"
+        acc_on_1_2_filter = next(
+            option for option in response.context["export_filter_options"] if option["name"] == "acc_on_1_2"
         )
-        self.assertEqual(acc_room_filter["values"], ["aa", "xx"])
+        self.assertEqual(acc_on_1_2_filter["values"], ["aa", "xx"])
         self.assertEqual(
             response.context["export_preview_rows"],
             [

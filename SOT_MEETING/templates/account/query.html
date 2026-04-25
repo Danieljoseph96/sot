@@ -1,0 +1,132 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<div class="container mt-4">
+
+    <div class="card shadow border-0 rounded-4">
+        <div class="card-body">
+
+            <h3 class="mb-4 text-primary fw-bold">
+                SQL Query Panel
+            </h3>
+
+            <!-- Query Form -->
+            <form method="POST">
+                {% csrf_token %}
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Enter SQL Query</label>
+                    <textarea
+                        name="query"
+                        class="form-control"
+                        rows="5"
+                        placeholder="Example: SELECT * FROM account_userreg"
+                    >{{ query_text }}</textarea>
+                </div>
+
+                <div class="d-flex gap-2 flex-wrap">
+                    <button type="submit" class="btn btn-primary">
+                        Run Query
+                    </button>
+
+                    {% if result %}
+                  {% if result %}
+<a href="{% url 'query_export_pdf' %}?query={{ query_text|urlencode }}"
+   class="btn btn-danger">
+   Export PDF
+</a>
+{% endif %}
+                    <table id="exportTable" hidden>
+                        <tr>
+                            <th>Sl No</th>
+                            {% for col in columns %}
+                                <th>{{ col }}</th>
+                            {% endfor %}
+                        </tr>
+
+                        {% for row in result %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            {% for val in row %}
+                                <td>{{ val }}</td>
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </table>
+
+                    <button type="button"
+                        onclick="exportTableToExcel('exportTable', 'query_result')"
+                        class="btn btn-success">
+                        Export Excel
+                    </button>
+                    {% endif %}
+                </div>
+            </form>
+
+            <!-- Error -->
+            {% if error %}
+            <div class="alert alert-danger mt-4">
+                {{ error }}
+            </div>
+            {% endif %}
+
+            <!-- Result Table -->
+            {% if result %}
+            <div class="mt-4">
+                <h5 class="fw-bold text-success">
+                    Total Rows : {{ result|length }}
+                </h5>
+            </div>
+
+            <div class="table-responsive mt-3">
+                <table class="table table-bordered table-hover table-striped align-middle">
+                    <thead class="table-dark text-center">
+                        <tr>
+                            <th width="60">Sl No</th>
+                            {% for col in columns %}
+                                <th>{{ col|title }}</th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for row in result %}
+                        <tr>
+                            <td class="text-center fw-bold">
+                                {{ forloop.counter }}
+                            </td>
+
+                            {% for val in row %}
+                                <td>{{ val }}</td>
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+
+        </div>
+    </div>
+
+</div>
+
+
+<script>
+function exportTableToExcel(tableID, filename='excel_data') {
+    let dataType = 'application/vnd.ms-excel';
+    let tableSelect = document.getElementById(tableID);
+    let tableHTML = tableSelect.outerHTML.replace(/ /g, '%20');
+
+    filename = filename ? filename + '.xls' : 'excel_data.xls';
+
+    let downloadLink = document.createElement("a");
+    document.body.appendChild(downloadLink);
+
+    downloadLink.href = 'data:' + dataType + ', ' + tableHTML;
+    downloadLink.download = filename;
+    downloadLink.click();
+}
+</script>
+
+{% endblock %}

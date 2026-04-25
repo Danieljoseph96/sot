@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<div class="container mt-4">
+
+<div class="card shadow border-0 rounded-4">
+<div class="card-body">
+
+<h3 class="fw-bold text-success mb-4">
+Bulk ID Card Generator
+</h3>
+
+<form method="POST">
+{% csrf_token %}
+
+<div class="row">
+
+<div class="col-md-6 mb-3">
+<label class="form-label">Paper Size</label>
+<select name="paper_size" class="form-select">
+<option value="A4">A4</option>
+<option value="A3">A3</option>
+<option value="LEGAL">Legal</option>
+<option value="LETTER">Letter</option>
+</select>
+</div>
+
+<div class="col-md-6 mb-3">
+<label class="form-label">Orientation</label>
+<select name="orientation" class="form-select">
+<option value="portrait">Portrait</option>
+<option value="landscape">Landscape</option>
+</select>
+</div>
+
+</div>
+
+<div class="alert alert-info">
+Default Card Size:
+<b>3.37 x 2.125 inch</b><br>
+Now fixed multiple cards per page + no overflow.
+</div>
+
+<button type="submit" class="btn btn-success btn-lg">
+Generate Bulk ID Cards
+</button>
+
+</form>
+
+</div>
+</div>
+
+</div>
+
+{% endblock %}

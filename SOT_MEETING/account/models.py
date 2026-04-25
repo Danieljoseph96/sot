@@ -17,10 +17,10 @@ class UserReg(models.Model):
     details = models.TextField(blank=True, null=True)
 
     acc = models.CharField(max_length=100, blank=True, null=True)
-    acc_room = models.CharField(max_length=100, blank=True, null=True)
+    acc_on_30th = models.CharField(max_length=100, blank=True, null=True)
+    acc_on_1_2 = models.CharField(max_length=100, blank=True, null=True)
+    acc_3rd = models.CharField(max_length=100, blank=True, null=True)
 
-    extra_stay_30th = models.CharField(max_length=100, blank=True, null=True)
-    extra_stay_3rd = models.CharField(max_length=100, blank=True, null=True)
 
     transport = models.CharField(max_length=100, blank=True, null=True)
 

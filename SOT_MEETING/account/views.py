@@ -26,6 +26,17 @@ from reportlab.platypus import Table, TableStyle
 from reportlab.lib.units import inch
 from reportlab.platypus import Paragraph, Table, TableStyle
 from reportlab.lib import colors
+from django.db import connection
+from django.shortcuts import render
+from io import BytesIO
+from django.http import HttpResponse
+from django.db import connection
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.lib.pagesizes import landscape, legal
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib import colors
+from reportlab.lib.units import inch
+
 
 
 
@@ -55,9 +66,9 @@ EXCLUDED_USERREG_IMPORT_FIELDS = {"sl_no", "created_at", "updated_at"}
 
 def get_report_rows():
     rows = list(
-        app_models.UserReg.objects.order_by("sl_no").values_list("name", "total_amount","acc_room")
+        app_models.UserReg.objects.order_by("sl_no").values_list("name", "total_amount","acc_on_1_2")
     )
-    return [(name, float(amount or 0), acc_room) for name, amount, acc_room in rows]
+    return [(name, float(amount or 0), acc_on_1_2) for name, amount, acc_on_1_2 in rows]
 
 
 USERREG_FILTER_FIELDS = ("bs", "locality", "state", "language")
@@ -134,7 +145,7 @@ EXPORT_FILTER_FIELDS = (
     "state",
     "language",
     "acc",
-    "acc_room",
+    "acc_on_1_2",
     "transport",
 )
 
@@ -153,7 +164,7 @@ VALID_ACC_CODES = {
 def normalize_export_filter_value(field_name, raw_value):
     text = str(raw_value).strip()
 
-    if field_name == "acc_room":
+    if field_name == "acc_on_1_2":
         words = text.upper().split()
 
         if not words:
@@ -253,12 +264,12 @@ def apply_export_filters(queryset, filter_rows):
         field_name = filter_row["field"]
         value = filter_row["value"].strip()
 
-        # Special filter for acc_room
-        if field_name == "acc_room":
+        # Special filter for acc_on_1_2
+        if field_name == "acc_on_1_2":
 
             filtered_queryset = filtered_queryset.filter(
-                Q(acc_room__iexact=value) |
-                Q(acc_room__istartswith=value + " ")
+                Q(acc_on_1_2__iexact=value) |
+                Q(acc_on_1_2__istartswith=value + " ")
             )
             continue
 
@@ -394,13 +405,13 @@ def build_common_context(request):
         "title": "SOT Meeting Report",
         "chart_labels": [row[0] for row in report_rows],
         "chart_values": [row[1] for row in report_rows],
-        "chart_acc_rooms": [row[2] for row in report_rows],
+        "chart_acc_on_1_2s": [row[2] for row in report_rows],
 
     }
     return {
         "chart_labels": report_data["chart_labels"],
         "chart_values": report_data["chart_values"],
-        "chart_acc_rooms": report_data["chart_acc_rooms"],
+        "chart_acc_on_1_2s": report_data["chart_acc_on_1_2s"],
         "locality_chart_labels": dashboard_chart_data["locality_chart_labels"],
         "locality_chart_values": dashboard_chart_data["locality_chart_values"],
         "payment_chart_labels": dashboard_chart_data["payment_chart_labels"],
@@ -1178,7 +1189,7 @@ def export_pdf(request):
         Bro. Edwin Sam - 9562324451<br/>
         Bro. Kiran Christo - 8086276237<br/>
         <b>Transportation</b><br/>
-        Bro. Saju - 8767855668<br/>
+        Bro. Saju - 8281066319<br/>
         Bro. Sajo - 9061104753
         """, contact_style)
     ]]
@@ -1270,9 +1281,9 @@ def export_pdf(request):
 
     used_rooms = (
         filtered_queryset
-        .exclude(acc_room__isnull=True)
-        .exclude(acc_room="")
-        .values_list("acc_room", flat=True)
+        .exclude(acc_on_1_2__isnull=True)
+        .exclude(acc_on_1_2="")
+        .values_list("acc_on_1_2", flat=True)
         .distinct()
     )
 
@@ -1469,3 +1480,516 @@ def locality_register_summary(request):
     if not locality:
         return JsonResponse({"error": "Locality is required."}, status=400)
     return JsonResponse(get_locality_register_summary(locality))
+
+
+def query(request):
+    context = build_common_context(request)
+
+    result = []
+    columns = []
+    error = ""
+    query_text = ""
+
+    if request.method == "POST":
+        query_text = request.POST.get("query", "").strip()
+
+        try:
+            # allow only SELECT query for safety
+            if not query_text.lower().startswith("select"):
+                error = "Only SELECT query allowed."
+            else:
+                with connection.cursor() as cursor:
+                    cursor.execute(query_text)
+
+                    columns = [col[0] for col in cursor.description]
+                    result = cursor.fetchall()
+
+        except Exception as e:
+            error = str(e)
+
+    context.update({
+        "query_text": query_text,
+        "columns": columns,
+        "result": result,
+        "error": error,
+    })
+
+    return render(request, "account/query.html", context)
+
+# views.py
+
+def query_export_pdf(request):
+    from io import BytesIO
+    from django.http import HttpResponse
+    from django.db import connection
+
+    from reportlab.platypus import (
+        SimpleDocTemplate,
+        Table,
+        TableStyle,
+        Paragraph,
+        Spacer,
+        LongTable,
+    )
+
+    from reportlab.lib.pagesizes import landscape, legal
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.lib import colors
+    from reportlab.lib.units import inch
+
+    query_text = request.GET.get("query", "").strip()
+
+    # --------------------------------------------
+    # Allow only SELECT
+    # --------------------------------------------
+    if not query_text.lower().startswith("select"):
+        return HttpResponse("Only SELECT query allowed")
+
+    # --------------------------------------------
+    # Run Query
+    # --------------------------------------------
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(query_text)
+
+            columns = [col[0] for col in cursor.description]
+            rows = cursor.fetchall()
+
+    except Exception as e:
+        return HttpResponse(str(e))
+
+    # --------------------------------------------
+    # PDF Setup
+    # --------------------------------------------
+    output = BytesIO()
+
+    pagesize = landscape(legal)
+
+    doc = SimpleDocTemplate(
+        output,
+        pagesize=pagesize,
+        leftMargin=15,
+        rightMargin=15,
+        topMargin=15,
+        bottomMargin=15,
+    )
+
+    styles = getSampleStyleSheet()
+    story = []
+
+    page_width = pagesize[0]
+    usable_width = page_width - doc.leftMargin - doc.rightMargin
+
+    # --------------------------------------------
+    # Heading
+    # --------------------------------------------
+    story.append(
+        Paragraph("<b>SQL Query Report</b>", styles["Title"])
+    )
+    story.append(Spacer(1, 0.10 * inch))
+
+    story.append(
+        Paragraph(f"<b>Total Rows:</b> {len(rows)}", styles["BodyText"])
+    )
+    story.append(Spacer(1, 0.08 * inch))
+
+    # --------------------------------------------
+    # Dynamic Table Data
+    # --------------------------------------------
+    table_data = []
+
+    headers = ["Sl No"] + columns
+    table_data.append(headers)
+
+    for i, row in enumerate(rows, start=1):
+        clean_row = [str(i)]
+
+        for val in row:
+            if val is None:
+                clean_row.append("")
+            else:
+                clean_row.append(str(val))
+
+        table_data.append(clean_row)
+
+    # --------------------------------------------
+    # Dynamic Column Width Control
+    # overflow / underflow fit
+    # --------------------------------------------
+    col_count = len(headers)
+
+    raw_widths = []
+
+    for col_index in range(col_count):
+        sample = []
+
+        for row in table_data[:30]:
+            if col_index < len(row):
+                sample.append(str(row[col_index]))
+
+        max_len = max([len(x) for x in sample], default=8)
+
+        # minimum and max dynamic size
+        width = max(45, min(max_len * 6, 180))
+
+        raw_widths.append(width)
+
+    total_width = sum(raw_widths)
+
+    # if overflow => shrink all
+    if total_width > usable_width:
+        scale = usable_width / total_width
+        col_widths = [w * scale for w in raw_widths]
+
+    # if underflow => stretch equally
+    elif total_width < usable_width:
+        extra = (usable_width - total_width) / col_count
+        col_widths = [w + extra for w in raw_widths]
+
+    else:
+        col_widths = raw_widths
+
+    # --------------------------------------------
+    # LongTable auto multipage
+    # --------------------------------------------
+    table = LongTable(
+        table_data,
+        colWidths=col_widths,
+        repeatRows=1
+    )
+
+    table.setStyle(TableStyle([
+
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0f172a")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+
+        ("GRID", (0, 0), (-1, -1), 0.4, colors.grey),
+
+        ("BACKGROUND", (0, 1), (-1, -1), colors.whitesmoke),
+
+        ("FONTSIZE", (0, 0), (-1, -1), 7),
+
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+
+        ("LEFTPADDING", (0, 0), (-1, -1), 2),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 2),
+
+        ("TOPPADDING", (0, 0), (-1, -1), 2),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+
+    ]))
+
+    story.append(table)
+
+    # --------------------------------------------
+    # Build PDF
+    # --------------------------------------------
+    doc.build(story)
+
+    output.seek(0)
+
+    response = HttpResponse(
+        output.getvalue(),
+        content_type="application/pdf"
+    )
+
+    response["Content-Disposition"] = (
+        'attachment; filename="sql_query_report.pdf"'
+    )
+
+    return response
+
+# views.py
+def idcard(request):
+    from io import BytesIO
+    from django.http import HttpResponse
+    from django.shortcuts import render
+
+    from reportlab.platypus import (
+        BaseDocTemplate,
+        PageTemplate,
+        Frame,
+        Paragraph,
+        Table,
+        TableStyle,
+        Image,
+        Spacer,
+        KeepTogether,
+    )
+
+    from reportlab.lib.units import inch
+    from reportlab.lib.pagesizes import A4, A3, legal, letter, landscape, portrait
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib import colors
+
+    # ----------------------------------------------------
+    # OPEN PAGE
+    # ----------------------------------------------------
+    if request.method != "POST":
+        context = build_common_context(request)
+        return render(request, "account/idcard.html", context)
+
+    # ----------------------------------------------------
+    # DEFAULT CARD SIZE
+    # ----------------------------------------------------
+    CARD_W = 3.37 * inch
+    CARD_H = 2.125 * inch
+
+    # ----------------------------------------------------
+    # PAGE OPTIONS
+    # ----------------------------------------------------
+    paper = request.POST.get("paper_size", "A4").upper()
+    orient = request.POST.get("orientation", "portrait").lower()
+
+    page_map = {
+        "A4": A4,
+        "A3": A3,
+        "LEGAL": legal,
+        "LETTER": letter,
+    }
+
+    page_size = page_map.get(paper, A4)
+
+    if orient == "landscape":
+        page_size = landscape(page_size)
+    else:
+        page_size = portrait(page_size)
+
+    PAGE_W, PAGE_H = page_size
+
+    # ----------------------------------------------------
+    # GRID CALCULATION
+    # ----------------------------------------------------
+    margin = 0.18 * inch
+    gap_x = 0.08 * inch
+    gap_y = 0.08 * inch
+
+    usable_w = PAGE_W - (margin * 2)
+    usable_h = PAGE_H - (margin * 2)
+
+    cols = int((usable_w + gap_x) // (CARD_W + gap_x))
+    rows = int((usable_h + gap_y) // (CARD_H + gap_y))
+
+    cols = max(cols, 1)
+    rows = max(rows, 1)
+
+    grid_w = cols * CARD_W + (cols - 1) * gap_x
+    grid_h = rows * CARD_H + (rows - 1) * gap_y
+
+    start_x = (PAGE_W - grid_w) / 2
+    start_y = PAGE_H - ((PAGE_H - grid_h) / 2)
+
+    # ----------------------------------------------------
+    # FRAMES
+    # ----------------------------------------------------
+    frames = []
+
+    for r in range(rows):
+        for c in range(cols):
+
+            x = start_x + c * (CARD_W + gap_x)
+            y = start_y - ((r + 1) * CARD_H) - (r * gap_y)
+
+            frames.append(
+                Frame(
+                    x, y,
+                    CARD_W,
+                    CARD_H,
+                    leftPadding=2,
+                    rightPadding=2,
+                    topPadding=2,
+                    bottomPadding=2,
+                    showBoundary=1,
+                )
+            )
+
+    # ----------------------------------------------------
+    # PDF
+    # ----------------------------------------------------
+    output = BytesIO()
+
+    doc = BaseDocTemplate(
+        output,
+        pagesize=page_size,
+        leftMargin=0,
+        rightMargin=0,
+        topMargin=0,
+        bottomMargin=0,
+    )
+
+    doc.addPageTemplates([
+        PageTemplate(id="cards", frames=frames)
+    ])
+
+    styles = getSampleStyleSheet()
+
+    head_style = ParagraphStyle(
+        "head",
+        parent=styles["Normal"],
+        fontName="Helvetica-Bold",
+        fontSize=9,
+        alignment=1,
+        leading=10,
+        textColor=colors.white,
+    )
+
+    label_style = ParagraphStyle(
+        "label",
+        parent=styles["Normal"],
+        fontSize=5,
+        leading=5.4,
+        fontName="Helvetica",
+    )
+
+    # ----------------------------------------------------
+    # AUTO TEXT FIX
+    # ----------------------------------------------------
+    def trim_text(txt, max_len=23):
+        txt = str(txt or "").strip()
+        if len(txt) <= max_len:
+            return txt
+        return txt[:max_len] + "..."
+
+    def font_size(txt):
+        ln = len(str(txt))
+        if ln > 28:
+            return 4
+        elif ln > 22:
+            return 4.5
+        elif ln > 16:
+            return 5
+        return 5.6
+
+    # ----------------------------------------------------
+    # IMAGES
+    # ----------------------------------------------------
+    logo_top = "static/images/image1.png"      # header image
+    logo_middle = "static/images/image1.png"   # transparent middle image
+
+    users = app_models.UserReg.objects.order_by("sl_no")
+
+    story = []
+
+    # ----------------------------------------------------
+    # GENERATE BULK CARDS
+    # ----------------------------------------------------
+    for user in users:
+
+        block = []
+
+        # --------------------------------------------
+        # HEADER IMAGE + TITLE
+        # --------------------------------------------
+        try:
+            top_img = Image(
+                logo_top,
+                width=0.30 * inch,
+                height=0.30 * inch
+            )
+        except:
+            top_img = ""
+
+        header = Table(
+            [[top_img, Paragraph("SOT MEETING", head_style)]],
+            colWidths=[0.35 * inch, CARD_W - 0.45 * inch],
+            rowHeights=[0.30 * inch]
+        )
+
+        header.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, -1), colors.green),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("ALIGN", (1, 0), (1, 0), "CENTER"),
+        ]))
+
+        block.append(header)
+        block.append(Spacer(1, 1))
+
+        # --------------------------------------------
+        # TRANSPARENT CENTER IMAGE
+        # --------------------------------------------
+        try:
+            mid_img = Image(
+                logo_middle,
+                width=0.42 * inch,
+                height=0.42 * inch,
+                mask='auto'
+            )
+
+            img_tbl = Table(
+                [[mid_img]],
+                colWidths=[CARD_W - 6]
+            )
+
+            img_tbl.setStyle(TableStyle([
+                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+            ]))
+
+            block.append(img_tbl)
+            block.append(Spacer(1, 1))
+
+        except:
+            pass
+
+        # --------------------------------------------
+        # DETAILS
+        # --------------------------------------------
+        fields = [
+            ["Name", user.name],
+            ["Locality", user.locality],
+            ["State", user.state],
+            ["Lang", user.language],
+            ["Room", user.acc_on_1_2],
+            ["Bus", getattr(user, "bus_no", "")],
+        ]
+
+        rows_data = []
+
+        for label, val in fields:
+
+            clean = trim_text(val, 24)
+
+            val_style = ParagraphStyle(
+                "val",
+                parent=styles["Normal"],
+                fontName="Helvetica-Bold",
+                fontSize=font_size(clean),
+                leading=font_size(clean) + 0.4,
+                wordWrap="CJK",
+            )
+
+            rows_data.append([
+                Paragraph(label, label_style),
+                Paragraph(clean, val_style)
+            ])
+
+        body = Table(
+            rows_data,
+            colWidths=[0.58 * inch, CARD_W - 0.76 * inch]
+        )
+
+        body.setStyle(TableStyle([
+            ("LEFTPADDING", (0, 0), (-1, -1), 1),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 1),
+            ("TOPPADDING", (0, 0), (-1, -1), 0),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+        ]))
+
+        block.append(body)
+
+        story.append(KeepTogether(block))
+
+    # ----------------------------------------------------
+    # BUILD PDF
+    # ----------------------------------------------------
+    doc.build(story)
+
+    output.seek(0)
+
+    response = HttpResponse(
+        output.getvalue(),
+        content_type="application/pdf"
+    )
+
+    response["Content-Disposition"] = 'attachment; filename="SOT_ID_CARDS.pdf"'
+
+    return response
