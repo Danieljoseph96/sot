@@ -22,7 +22,10 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, Tabl
 
 from . import models as app_models
 from . import forms as app_forms
-
+from reportlab.platypus import Table, TableStyle
+from reportlab.lib.units import inch
+from reportlab.platypus import Paragraph, Table, TableStyle
+from reportlab.lib import colors
 
 
 
@@ -136,12 +139,40 @@ EXPORT_FILTER_FIELDS = (
 )
 
 
+VALID_ACC_CODES = {
+    "ANR", "AMR", "CFR", "SS", "ARCADE",
+    "LUX ADB", "LUX P", "LUX S", "LUX C",
+    "LUX AA", "LUX AB", "LUX AC",
+    "LUX N", "LUX V",
+    "GGH",
+    "D1", "D2", "D3", "D4",
+    "VC", "V DB",
+    "SELF",
+}
+
 def normalize_export_filter_value(field_name, raw_value):
     text = str(raw_value).strip()
-    if field_name == "acc_room":
-        return text.split(" ", 1)[0]
-    return text
 
+    if field_name == "acc_room":
+        words = text.upper().split()
+
+        if not words:
+            return ""
+
+        # Handle 2-word codes
+        if len(words) >= 2:
+            two_word = f"{words[0]} {words[1]}"
+            if two_word in VALID_ACC_CODES:
+                return two_word
+
+        # Handle 1-word codes
+        one_word = words[0]
+        if one_word in VALID_ACC_CODES:
+            return one_word
+
+        return ""
+
+    return text
 
 def get_export_filter_options(selected_filters=None):
     options = []
@@ -217,13 +248,22 @@ def resolve_export_filter_rows(request):
 
 def apply_export_filters(queryset, filter_rows):
     filtered_queryset = queryset
+
     for filter_row in filter_rows:
-        if filter_row["field"] == "acc_room":
+        field_name = filter_row["field"]
+        value = filter_row["value"].strip()
+
+        # Special filter for acc_room
+        if field_name == "acc_room":
+
             filtered_queryset = filtered_queryset.filter(
-                Q(acc_room__iexact=filter_row["value"]) | Q(acc_room__istartswith=f"{filter_row['value']} ")
+                Q(acc_room__iexact=value) |
+                Q(acc_room__istartswith=value + " ")
             )
             continue
-        filtered_queryset = filtered_queryset.filter(**{filter_row["field"]: filter_row["value"]})
+
+        filtered_queryset = filtered_queryset.filter(**{field_name: value})
+
     return filtered_queryset
 
 
@@ -1035,69 +1075,273 @@ def export_xlsx(request):
     response["Content-Disposition"] = 'attachment; filename="sot-meeting-report.xlsx"'
     return response
 
-
 def export_pdf(request):
-    if not request.user.is_authenticated:
-        return redirect(f"{reverse('login')}?next={reverse('export_pdf')}")
-
     selected_export_columns = resolve_selected_export_columns(request)
     selected_filter_rows = resolve_export_filter_rows(request)
+
+    locality_name = ""
+    state_name = ""
+
+    for row in selected_filter_rows:
+        if row["field"] == "locality":
+            locality_name = row["value"].strip()
+            break
+
+    # -------------------------------------------------
+    # Update locality wise state automatically
+    # -------------------------------------------------
+    if locality_name:
+        first_record = app_models.UserReg.objects.filter(
+            locality__iexact=locality_name
+        ).first()
+
+        if first_record:
+            state_name = (first_record.state or "").strip()
+
+            app_models.LocalityWise.objects.update_or_create(
+                locality=locality_name,
+                defaults={"state": state_name}
+            )
+
+    # -------------------------------------------------
+    # Apply filters
+    # -------------------------------------------------
     filtered_queryset = apply_export_filters(
         app_models.UserReg.objects.order_by("sl_no"),
         selected_filter_rows,
     )
-    export_headers, export_rows = get_userreg_export_dataset(selected_export_columns, filtered_queryset)
+
+    export_headers, export_rows = get_userreg_export_dataset(
+        selected_export_columns,
+        filtered_queryset
+    )
+
+    # -------------------------------------------------
+    # Locality export => fresh serial number
+    # -------------------------------------------------
+    if locality_name:
+        export_headers.insert(0, "Sl No")
+        export_rows = [
+            [str(i)] + row
+            for i, row in enumerate(export_rows, start=1)
+        ]
+
+    # -------------------------------------------------
+    # Page size
+    # -------------------------------------------------
+    pdf_pagesize = landscape(legal) if locality_name else get_export_pdf_pagesize(len(export_headers))
+
     output = BytesIO()
-    pdf_pagesize = get_export_pdf_pagesize(len(export_headers))
+
     document = SimpleDocTemplate(
         output,
         pagesize=pdf_pagesize,
-        rightMargin=24,
-        leftMargin=24,
-        topMargin=24,
-        bottomMargin=24,
+        rightMargin=18,
+        leftMargin=18,
+        topMargin=16,
+        bottomMargin=16,
         pageCompression=0,
     )
+
     styles = getSampleStyleSheet()
-    active_filter_count = len(selected_filter_rows)
+
+    # -------------------------------------------------
+    # Styles
+    # -------------------------------------------------
+    title_style = styles["Title"].clone("title_style")
+    title_style.fontSize = 17
+    title_style.leading = 18
+    title_style.spaceBefore = 0
+    title_style.spaceAfter = 0
+
+    contact_style = styles["BodyText"].clone("contact_style")
+    contact_style.fontSize = 8
+    contact_style.leading = 8.5
+    contact_style.spaceBefore = 0
+    contact_style.spaceAfter = 0
+
+    report_title = "SOT Meeting Report"
+    if locality_name:
+        report_title += f" - {locality_name}"
+
+    # -------------------------------------------------
+    # Header
+    # -------------------------------------------------
+    header_data = [[
+        Paragraph(f"<b>{report_title}</b>", title_style),
+
+        Paragraph("""
+        <b>Help Desk</b><br/>
+        Bro. Jude - 9567413410<br/>
+        Bro. Eldhose - 9497774409<br/>
+        <b>Accommodation</b><br/>
+        Bro. Edwin Sam - 9562324451<br/>
+        Bro. Kiran Christo - 8086276237<br/>
+        <b>Transportation</b><br/>
+        Bro. Saju - 8767855668<br/>
+        Bro. Sajo - 9061104753
+        """, contact_style)
+    ]]
+
+    header_table = Table(header_data, colWidths=[560, 190])
+
+    header_table.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ("TOPPADDING", (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+    ]))
+
     story = [
-        Paragraph("SOT Meeting Report", styles["Title"]),
-        Spacer(1, 0.12 * inch),
-        Paragraph("User registration summary exported from the dashboard.", styles["BodyText"]),
+        header_table,
         Spacer(1, 0.06 * inch),
-        Paragraph(f"Rows included: {len(export_rows)}", styles["BodyText"]),
-        Paragraph(f"Columns included: {len(export_headers)}", styles["BodyText"]),
-        Paragraph(f"Active filter values: {active_filter_count}", styles["BodyText"]),
-        Spacer(1, 0.14 * inch),
+        Paragraph(f"Rows Included: {len(export_rows)}", styles["BodyText"]),
+        Spacer(1, 0.08 * inch),
     ]
 
+    # -------------------------------------------------
+    # Data Table
+    # -------------------------------------------------
     table_data = build_export_pdf_table_data(export_headers, export_rows, styles)
+
     available_width = pdf_pagesize[0] - document.leftMargin - document.rightMargin
-    col_widths = get_export_pdf_col_widths(export_headers, export_rows, available_width)
-    table = Table(table_data, colWidths=col_widths, repeatRows=1)
-    table.setStyle(
-        TableStyle(
-            [
-                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0f172a")),
-                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-                ("BACKGROUND", (0, 1), (-1, -1), colors.whitesmoke),
-                ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
-                ("ALIGN", (0, 0), (-1, -1), "LEFT"),
-                ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                ("LEFTPADDING", (0, 0), (-1, -1), 4),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 4),
-                ("TOPPADDING", (0, 0), (-1, -1), 4),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-            ]
-        )
+
+    col_widths = get_export_pdf_col_widths(
+        export_headers,
+        export_rows,
+        available_width
     )
+
+    table = Table(table_data, colWidths=col_widths, repeatRows=1)
+
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0f172a")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("BACKGROUND", (0, 1), (-1, -1), colors.whitesmoke),
+        ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#cbd5e1")),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+
+        ("LEFTPADDING", (0, 0), (-1, -1), 3),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 3),
+        ("TOPPADDING", (0, 0), (-1, -1), 2),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+    ]))
+
+    # Right align money columns
+    for idx, head in enumerate(export_headers):
+        if head.lower() in ["total amount", "balance amount"]:
+            table.setStyle(TableStyle([
+                ("ALIGN", (idx, 1), (idx, -1), "RIGHT")
+            ]))
+
     story.append(table)
+
+    # -------------------------------------------------
+    # Print only matched room / venue codes
+    # -------------------------------------------------
+    room_map = {
+        "ANR": "Anna Residency",
+        "AMR": "Amma Residency",
+        "CFR": "Comfort Inn",
+        "SS": "Silver Stone",
+        "ARCADE": "Dreams Arcade",
+        "GGH": "Government Guest House",
+        "LUX ADB": "LUX Adobe",
+        "LUX P": "LUX Palm Grove",
+        "LUX S": "LUX Spicy",
+        "LUX C": "LUX Castillo",
+        "LUX AA": "LUX Apartment A",
+        "LUX AB": "LUX Apartment B",
+        "LUX AC": "LUX Apartment C",
+        "LUX N": "LUX Nest",
+        "LUX V": "LUX Villa",
+        "SELF": "Self Accommodation",
+    }
+
+    venue_map = {
+        "D1": "Dormitory 1",
+        "D2": "Dormitory 2",
+        "D3": "Dormitory 3",
+        "D4": "Dormitory 4",
+        "VC": "Venue Cubicle",
+        "V DB": "Venue Double Bed",
+    }
+
+    used_rooms = (
+        filtered_queryset
+        .exclude(acc_room__isnull=True)
+        .exclude(acc_room="")
+        .values_list("acc_room", flat=True)
+        .distinct()
+    )
+
+    found_room_codes = []
+    found_venue_codes = []
+
+    for item in used_rooms:
+        txt = str(item).upper().strip()
+
+        for code in room_map.keys():
+            if txt == code or txt.startswith(code + " "):
+                if code not in found_room_codes:
+                    found_room_codes.append(code)
+
+        for code in venue_map.keys():
+            if txt == code or txt.startswith(code + " "):
+                if code not in found_venue_codes:
+                    found_venue_codes.append(code)
+
+    # Accommodation
+    if found_room_codes:
+        story.append(Spacer(1, 0.15 * inch))
+        story.append(Paragraph("<b>Accommodation Codes</b>", styles["Heading4"]))
+
+        room_text = "<br/>".join(
+            [f"{code} - {room_map[code]}" for code in found_room_codes]
+        )
+
+        story.append(Paragraph(room_text, styles["BodyText"]))
+
+    # Venue
+    if found_venue_codes:
+        story.append(Spacer(1, 0.12 * inch))
+        story.append(Paragraph("<b>Venue Codes</b>", styles["Heading4"]))
+
+        venue_text = "<br/>".join(
+            [f"{code} - {venue_map[code]}" for code in found_venue_codes]
+        )
+
+        story.append(Paragraph(venue_text, styles["BodyText"]))
+
+    # -------------------------------------------------
+    # Build PDF
+    # -------------------------------------------------
     document.build(story)
+
     output.seek(0)
 
-    response = HttpResponse(output.getvalue(), content_type="application/pdf")
-    response["Content-Disposition"] = 'attachment; filename="sot-meeting-report.pdf"'
+    response = HttpResponse(
+        output.getvalue(),
+        content_type="application/pdf"
+    )
+
+    # -------------------------------------------------
+    # Dynamic filename
+    # -------------------------------------------------
+    if locality_name and state_name:
+        file_name = f"{locality_name}_{state_name}.pdf"
+    elif locality_name:
+        file_name = f"{locality_name}.pdf"
+    else:
+        file_name = "sot-meeting-report.pdf"
+
+    file_name = file_name.replace(" ", "_")
+
+    response["Content-Disposition"] = f'attachment; filename="{file_name}"'
+
     return response
+
 def locality_register(request):
     context = build_common_context(request)
     locality_summary = None
