@@ -170,7 +170,7 @@ EXPORT_FILTER_FIELDS = (
 
 
 VALID_ACC_CODES = {
-    "ANR", "AMR", "CFR", "SS", "ARCADE",
+    "ANR", "AMR", "CFR", "SS", "DAR",
     "LUX ADB", "LUX P", "LUX S", "LUX C",
     "LUX AA", "LUX AB", "LUX AC",
     "LUX N", "LUX V",
@@ -1306,7 +1306,7 @@ def export_pdf(request):
         "AMR": "Amma Residency",
         "CFR": "Comfort Inn",
         "SS": "Silver Stone",
-        "ARCADE": "Dreams Arcade",
+        "DAR": "DREAMS Airport Residency",
         "GGH": "Government Guest House",
         "LUX ADB": "LUX Adobe",
         "LUX P": "LUX Palm Grove",
