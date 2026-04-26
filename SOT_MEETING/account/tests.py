@@ -206,7 +206,7 @@ class SearchSummaryTests(TestCase):
             state="Tamil Nadu",
             persons_count=2,
             total_paid="250.00",
-            total_balance="25.00",
+            transportation_fee="25.00",
             payment_method="cash",
         )
 
@@ -246,7 +246,7 @@ class SearchSummaryTests(TestCase):
             state="Tamil Nadu",
             persons_count=2,
             total_paid="0.00",
-            total_balance="25.00",
+            transportation_fee="25.00",
             payment_method="pending",
         )
 
@@ -262,7 +262,7 @@ class SearchSummaryTests(TestCase):
             state="Tamil Nadu",
             persons_count=2,
             total_paid="250.00",
-            total_balance="0.00",
+            transportation_fee="0.00",
             payment_method="cash",
         )
         LocalityWise.objects.create(
@@ -270,7 +270,7 @@ class SearchSummaryTests(TestCase):
             state="Tamil Nadu",
             persons_count=1,
             total_paid="100.00",
-            total_balance="0.00",
+            transportation_fee="0.00",
             payment_method="upi",
         )
         LocalityWise.objects.create(
@@ -278,7 +278,7 @@ class SearchSummaryTests(TestCase):
             state="Tamil Nadu",
             persons_count=1,
             total_paid="0.00",
-            total_balance="10.00",
+            transportation_fee="10.00",
             payment_method="pending",
         )
 
@@ -382,7 +382,7 @@ class LocalityRegisterTests(TestCase):
                 "state": "",
                 "persons_count": 0,
                 "total_paid": "100.00",
-                "total_balance": "0.00",
+                "transportation_fee": "0.00",
                 "payment_method": "cash",
                 "remarks": "Test entry",
             },
@@ -393,7 +393,7 @@ class LocalityRegisterTests(TestCase):
         locality_summary = LocalityWise.objects.get(locality="Chennai")
         self.assertEqual(locality_summary.state, "Tamil Nadu")
         self.assertEqual(locality_summary.persons_count, 5)
-        self.assertEqual(locality_summary.total_balance, 40)
+        self.assertEqual(locality_summary.transportation_fee, 40)
         self.assertEqual(locality_summary.total_paid, 100)
 
     def test_paid_locality_hidden_from_dropdown_and_listed_separately(self):
@@ -402,7 +402,7 @@ class LocalityRegisterTests(TestCase):
             state="Tamil Nadu",
             persons_count=5,
             total_paid="385.00",
-            total_balance="40.00",
+            transportation_fee="40.00",
             payment_method="cash",
         )
 
@@ -448,7 +448,7 @@ class HomeAndUserRegPageTests(TestCase):
             state="Tamil Nadu",
             persons_count=1,
             total_paid="100.00",
-            total_balance="0.00",
+            transportation_fee="0.00",
             payment_method="cash",
         )
         LocalityWise.objects.create(
@@ -456,7 +456,7 @@ class HomeAndUserRegPageTests(TestCase):
             state="Tamil Nadu",
             persons_count=1,
             total_paid="0.00",
-            total_balance="120.00",
+            transportation_fee="120.00",
             payment_method="pending",
         )
 

@@ -63,12 +63,31 @@ EXCLUDED_USERREG_IMPORT_FIELDS = {"sl_no", "created_at", "updated_at"}
 
 
 
+from django.db.models import F, Sum, DecimalField, ExpressionWrapper
+
+
+def userreg_total_amount_expression():
+    return ExpressionWrapper(
+        F("received_amount") +
+        F("registration_balance_amount") +
+        F("extra_stay_amount") +
+        F("transportation_fee"),
+        output_field=DecimalField(max_digits=12, decimal_places=2),
+    )
+
 
 def get_report_rows():
     rows = list(
-        app_models.UserReg.objects.order_by("sl_no").values_list("name", "total_amount","acc_on_1_2")
+        app_models.UserReg.objects.annotate(
+            total_amount=userreg_total_amount_expression()
+        ).order_by("sl_no").values_list(
+            "name",
+            "total_amount",
+            "acc_on_1_2"
+        )
     )
-    return [(name, float(amount or 0), acc_on_1_2) for name, amount, acc_on_1_2 in rows]
+
+    return [(name, float(amount or 0), acc) for name, amount, acc in rows]
 
 
 USERREG_FILTER_FIELDS = ("bs", "locality", "state", "language")
@@ -460,9 +479,13 @@ def home(request):
 
 
 def userreg_list(request):
-    queryset = app_models.UserReg.objects.order_by("sl_no")
+    queryset = app_models.UserReg.objects.annotate(
+        total_amount_calc=userreg_total_amount_expression()
+    ).order_by("sl_no")
+
     selected_filters = resolve_userreg_filters(request)
     filtered_queryset = apply_userreg_filters(queryset, selected_filters)
+
     selected_columns = [
         "sl_no",
         "name",
@@ -470,10 +493,14 @@ def userreg_list(request):
         "locality",
         "state",
         "language",
-        "total_amount",
+        "total_amount_calc",   
         "balance_amount",
     ]
-    table_headers, table_rows = get_userreg_export_dataset(selected_columns, filtered_queryset)
+
+    table_headers, table_rows = get_userreg_export_dataset(
+        selected_columns,
+        filtered_queryset
+    )
 
     context = build_common_context(request)
     context.update(
@@ -485,6 +512,7 @@ def userreg_list(request):
             "userreg_count": len(table_rows),
         }
     )
+
     return render(request, "account/userreg_list.html", context)
 
 
@@ -800,7 +828,9 @@ def build_search_summary(query, queryset):
     if not matched_localities:
         return None
 
-    aggregates = queryset.aggregate(
+    aggregates = queryset.annotate(
+        total_amount=userreg_total_amount_expression()
+    ).aggregate(
         total_amount_sum=Sum("total_amount"),
         balance_amount_sum=Sum("balance_amount"),
     )
@@ -1032,6 +1062,7 @@ def search(request):
 			search_filter |= Q(locality__icontains=query)
 			search_filter |= Q(state__icontains=query)
 			if query.replace(".", "", 1).isdigit():
+				queryset = queryset.annotate(total_amount=userreg_total_amount_expression())
 				search_filter |= Q(total_amount=Decimal(query))
 				search_filter |= Q(balance_amount=Decimal(query))
 			queryset = queryset.filter(search_filter)
@@ -1246,6 +1277,25 @@ def export_pdf(request):
                 ("ALIGN", (idx, 1), (idx, -1), "RIGHT")
             ]))
 
+############
+# -------------------------------------------------
+# Locality Wise Total Balance Amount
+# -------------------------------------------------
+    if locality_name:
+        total_balance = filtered_queryset.aggregate(
+            total=Sum("balance_amount")
+        )["total"] or 0
+
+        story.append(Spacer(1, 0.08 * inch))
+        story.append(
+            Paragraph(
+                f"<b>Total Balance Amount : ₹ {total_balance:,.2f}</b>",
+                styles["Heading3"]
+            )
+        )
+        story.append(Spacer(1, 0.08 * inch))
+############
+
     story.append(table)
 
     # -------------------------------------------------
@@ -1393,7 +1443,9 @@ def locality_register(request):
 
 def get_locality_register_summary(locality):
     queryset = app_models.UserReg.objects.filter(locality__iexact=locality).order_by("sl_no")
-    aggregates = queryset.aggregate(
+    aggregates = queryset.annotate(
+        total_amount=userreg_total_amount_expression()
+    ).aggregate(
         total_amount_sum=Sum("total_amount"),
         balance_amount_sum=Sum("balance_amount"),
     )

@@ -37,7 +37,7 @@ class UserReg(models.Model):
     received_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     registration_balance_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     extra_stay_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    transportation_fee = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     balance_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
 
     remarks = models.TextField(blank=True, null=True)
