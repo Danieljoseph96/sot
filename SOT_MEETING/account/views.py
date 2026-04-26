@@ -1806,8 +1806,8 @@ def idcard(request):
     RIGHT_SPACE = float(request.POST.get("right_space", 0.6)) * cm
     ROW_GAP = float(request.POST.get("row_gap", 2))
 
-    CARD_W = 9.5 * cm
-    CARD_H = 6.0 * cm
+    CARD_W = 9.2 * cm
+    CARD_H = 5.7 * cm
 
     bg_img = "static/images/image1.png"
 
