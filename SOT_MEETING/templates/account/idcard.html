@@ -33,16 +33,46 @@ Bulk ID Card Generator
 </select>
 </div>
 
+<div class="col-md-3 mb-3">
+<label class="form-label">Font Size</label>
+<input type="number" name="font_size" value="12" class="form-control">
+</div>
+
+<div class="col-md-3 mb-3">
+<label class="form-label">Top Space (cm)</label>
+<input type="text" name="top_space" value="2.1" class="form-control">
+</div>
+
+<div class="col-md-3 mb-3">
+<label class="form-label">Left Gap (cm)</label>
+<input type="text" name="left_space" value="0.6" class="form-control">
+</div>
+
+<div class="col-md-3 mb-3">
+<label class="form-label">Right Gap (cm)</label>
+<input type="text" name="right_space" value="0.6" class="form-control">
+</div>
+
+<div class="col-md-3 mb-3">
+<label class="form-label">Row Gap</label>
+<input type="text" name="row_gap" value="2" class="form-control">
+</div>
+
 </div>
 
 <div class="alert alert-info">
-Default Card Size:
-<b>3.37 x 2.125 inch</b><br>
-Now fixed multiple cards per page + no overflow.
+Preview = open in browser<br>
+Export = download PDF
 </div>
 
-<button type="submit" class="btn btn-success btn-lg">
-Generate Bulk ID Cards
+<button type="submit" name="action" value="preview"
+class="btn btn-primary btn-lg me-2">
+Preview
+</button>
+
+<button type="submit" name="action" value="export"
+class="btn btn-success btn-lg">
+Export PDF
 </button>
 
 </form>

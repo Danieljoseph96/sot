@@ -17,7 +17,7 @@ from openpyxl import Workbook, load_workbook
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import landscape, legal, letter
 from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.lib.units import inch
+from reportlab.lib.units import cm, inch
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from . import models as app_models
@@ -1752,44 +1752,68 @@ def query_export_pdf(request):
     return response
 
 # views.py
+# views.py
+
 def idcard(request):
     from io import BytesIO
     from django.http import HttpResponse
     from django.shortcuts import render
 
     from reportlab.platypus import (
-        BaseDocTemplate,
-        PageTemplate,
-        Frame,
-        Paragraph,
-        Table,
-        TableStyle,
-        Image,
-        Spacer,
-        KeepTogether,
+        BaseDocTemplate, PageTemplate, Frame,
+        Paragraph, Table, TableStyle,
+        Spacer, KeepTogether
     )
 
-    from reportlab.lib.units import inch
+    from reportlab.lib.units import inch, cm
     from reportlab.lib.pagesizes import A4, A3, legal, letter, landscape, portrait
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-    from reportlab.lib import colors
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
 
-    # ----------------------------------------------------
+    # -------------------------------------------------
     # OPEN PAGE
-    # ----------------------------------------------------
+    # -------------------------------------------------
     if request.method != "POST":
         context = build_common_context(request)
         return render(request, "account/idcard.html", context)
 
-    # ----------------------------------------------------
-    # DEFAULT CARD SIZE
-    # ----------------------------------------------------
-    CARD_W = 3.37 * inch
-    CARD_H = 2.125 * inch
+    # -------------------------------------------------
+    # FONT
+    # -------------------------------------------------
+    try:
+        pdfmetrics.registerFont(
+            TTFont(
+                "NewCentury",
+                r"C:\Windows\Fonts\SCHLBKB.TTF"
+            )
+        )
+        MAIN_FONT = "NewCentury"
+    except:
+        MAIN_FONT = "Times-Roman"
 
-    # ----------------------------------------------------
-    # PAGE OPTIONS
-    # ----------------------------------------------------
+    # -------------------------------------------------
+    # EXPORT / PREVIEW
+    # -------------------------------------------------
+    action = request.POST.get("action", "preview")
+
+    # -------------------------------------------------
+    # CUSTOMIZE OPTIONS
+    # -------------------------------------------------
+    FONT_SIZE = int(request.POST.get("font_size", 12))
+    TOP_SPACE = float(request.POST.get("top_space", 2.1)) * cm
+    LEFT_SPACE = float(request.POST.get("left_space", 0.6)) * cm
+    RIGHT_SPACE = float(request.POST.get("right_space", 0.6)) * cm
+    ROW_GAP = float(request.POST.get("row_gap", 2))
+
+    CARD_W = 9.5 * cm
+    CARD_H = 6.0 * cm
+
+    bg_img = "static/images/image1.png"
+
+    # -------------------------------------------------
+    # PAGE SIZE
+    # -------------------------------------------------
     paper = request.POST.get("paper_size", "A4").upper()
     orient = request.POST.get("orientation", "portrait").lower()
 
@@ -1809,9 +1833,9 @@ def idcard(request):
 
     PAGE_W, PAGE_H = page_size
 
-    # ----------------------------------------------------
-    # GRID CALCULATION
-    # ----------------------------------------------------
+    # -------------------------------------------------
+    # GRID
+    # -------------------------------------------------
     margin = 0.18 * inch
     gap_x = 0.08 * inch
     gap_y = 0.08 * inch
@@ -1831,10 +1855,11 @@ def idcard(request):
     start_x = (PAGE_W - grid_w) / 2
     start_y = PAGE_H - ((PAGE_H - grid_h) / 2)
 
-    # ----------------------------------------------------
+    # -------------------------------------------------
     # FRAMES
-    # ----------------------------------------------------
+    # -------------------------------------------------
     frames = []
+    frame_pos = []
 
     for r in range(rows):
         for c in range(cols):
@@ -1842,22 +1867,40 @@ def idcard(request):
             x = start_x + c * (CARD_W + gap_x)
             y = start_y - ((r + 1) * CARD_H) - (r * gap_y)
 
+            frame_pos.append((x, y))
+
             frames.append(
                 Frame(
                     x, y,
-                    CARD_W,
-                    CARD_H,
-                    leftPadding=2,
-                    rightPadding=2,
-                    topPadding=2,
-                    bottomPadding=2,
+                    CARD_W, CARD_H,
+                    leftPadding=0,
+                    rightPadding=0,
+                    topPadding=0,
+                    bottomPadding=0,
                     showBoundary=1,
                 )
             )
 
-    # ----------------------------------------------------
-    # PDF
-    # ----------------------------------------------------
+    # -------------------------------------------------
+    # BACKGROUND IMAGE
+    # -------------------------------------------------
+    def draw_bg(canvas, doc):
+        for x, y in frame_pos:
+            try:
+                canvas.drawImage(
+                    bg_img,
+                    x, y,
+                    width=CARD_W,
+                    height=CARD_H,
+                    preserveAspectRatio=False,
+                    mask='auto'
+                )
+            except:
+                pass
+
+    # -------------------------------------------------
+    # PDF DOC
+    # -------------------------------------------------
     output = BytesIO()
 
     doc = BaseDocTemplate(
@@ -1870,169 +1913,93 @@ def idcard(request):
     )
 
     doc.addPageTemplates([
-        PageTemplate(id="cards", frames=frames)
+        PageTemplate(
+            id="cards",
+            frames=frames,
+            onPage=draw_bg
+        )
     ])
 
     styles = getSampleStyleSheet()
 
-    head_style = ParagraphStyle(
-        "head",
-        parent=styles["Normal"],
-        fontName="Helvetica-Bold",
-        fontSize=9,
-        alignment=1,
-        leading=10,
-        textColor=colors.white,
-    )
-
     label_style = ParagraphStyle(
         "label",
         parent=styles["Normal"],
-        fontSize=5,
-        leading=5.4,
-        fontName="Helvetica",
+        fontName=MAIN_FONT,
+        fontSize=FONT_SIZE,
+        leading=FONT_SIZE + 1,
+        alignment=0,  # LEFT
     )
 
-    # ----------------------------------------------------
-    # AUTO TEXT FIX
-    # ----------------------------------------------------
-    def trim_text(txt, max_len=23):
-        txt = str(txt or "").strip()
-        if len(txt) <= max_len:
-            return txt
-        return txt[:max_len] + "..."
+    value_style = ParagraphStyle(
+        "value",
+        parent=styles["Normal"],
+        fontName=MAIN_FONT,
+        fontSize=FONT_SIZE,
+        leading=FONT_SIZE + 1,
+        alignment=0,  # LEFT
+    )
 
-    def font_size(txt):
-        ln = len(str(txt))
-        if ln > 28:
-            return 4
-        elif ln > 22:
-            return 4.5
-        elif ln > 16:
-            return 5
-        return 5.6
-
-    # ----------------------------------------------------
-    # IMAGES
-    # ----------------------------------------------------
-    logo_top = "static/images/image1.png"      # header image
-    logo_middle = "static/images/image1.png"   # transparent middle image
+    # -------------------------------------------------
+    # OVERFLOW FIX
+    # -------------------------------------------------
+    def fit_text(txt, limit=22):
+        txt = str(txt or "")
+        if len(txt) > limit:
+            return txt[:limit] + "..."
+        return txt
 
     users = app_models.UserReg.objects.order_by("sl_no")
 
     story = []
 
-    # ----------------------------------------------------
-    # GENERATE BULK CARDS
-    # ----------------------------------------------------
+    # -------------------------------------------------
+    # LOOP
+    # -------------------------------------------------
     for user in users:
 
         block = []
 
-        # --------------------------------------------
-        # HEADER IMAGE + TITLE
-        # --------------------------------------------
-        try:
-            top_img = Image(
-                logo_top,
-                width=0.30 * inch,
-                height=0.30 * inch
-            )
-        except:
-            top_img = ""
+        block.append(Spacer(1, TOP_SPACE))
 
-        header = Table(
-            [[top_img, Paragraph("SOT MEETING", head_style)]],
-            colWidths=[0.35 * inch, CARD_W - 0.45 * inch],
-            rowHeights=[0.30 * inch]
-        )
-
-        header.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, -1), colors.green),
-            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("ALIGN", (1, 0), (1, 0), "CENTER"),
-        ]))
-
-        block.append(header)
-        block.append(Spacer(1, 1))
-
-        # --------------------------------------------
-        # TRANSPARENT CENTER IMAGE
-        # --------------------------------------------
-        try:
-            mid_img = Image(
-                logo_middle,
-                width=0.42 * inch,
-                height=0.42 * inch,
-                mask='auto'
-            )
-
-            img_tbl = Table(
-                [[mid_img]],
-                colWidths=[CARD_W - 6]
-            )
-
-            img_tbl.setStyle(TableStyle([
-                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-            ]))
-
-            block.append(img_tbl)
-            block.append(Spacer(1, 1))
-
-        except:
-            pass
-
-        # --------------------------------------------
-        # DETAILS
-        # --------------------------------------------
-        fields = [
-            ["Name", user.name],
-            ["Locality", user.locality],
-            ["State", user.state],
-            ["Lang", user.language],
-            ["Room", user.acc_on_1_2],
-            ["Bus", getattr(user, "bus_no", "")],
+        rows_data = [
+            ["Name", fit_text(user.name)],
+            ["Locality", fit_text(user.locality)],
+            ["Room", fit_text(user.acc_on_1_2)],
+            ["Bus", fit_text(getattr(user, "bus_no", ""))],
         ]
 
-        rows_data = []
+        final_rows = []
 
-        for label, val in fields:
-
-            clean = trim_text(val, 24)
-
-            val_style = ParagraphStyle(
-                "val",
-                parent=styles["Normal"],
-                fontName="Helvetica-Bold",
-                fontSize=font_size(clean),
-                leading=font_size(clean) + 0.4,
-                wordWrap="CJK",
-            )
-
-            rows_data.append([
-                Paragraph(label, label_style),
-                Paragraph(clean, val_style)
+        for a, b in rows_data:
+            final_rows.append([
+                Paragraph(a, label_style),
+                Paragraph(b, value_style)
             ])
 
         body = Table(
-            rows_data,
-            colWidths=[0.58 * inch, CARD_W - 0.76 * inch]
+            final_rows,
+            colWidths=[
+                2.5 * cm,
+                CARD_W - LEFT_SPACE - RIGHT_SPACE - 2.5 * cm
+            ]
         )
 
         body.setStyle(TableStyle([
-            ("LEFTPADDING", (0, 0), (-1, -1), 1),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 1),
-            ("TOPPADDING", (0, 0), (-1, -1), 0),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+            ("LEFTPADDING", (0, 0), (-1, -1), LEFT_SPACE),
+            ("RIGHTPADDING", (0, 0), (-1, -1), RIGHT_SPACE),
+            ("TOPPADDING", (0, 0), (-1, -1), ROW_GAP),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), ROW_GAP),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ]))
 
         block.append(body)
 
         story.append(KeepTogether(block))
 
-    # ----------------------------------------------------
-    # BUILD PDF
-    # ----------------------------------------------------
+    # -------------------------------------------------
+    # BUILD
+    # -------------------------------------------------
     doc.build(story)
 
     output.seek(0)
@@ -2042,6 +2009,9 @@ def idcard(request):
         content_type="application/pdf"
     )
 
-    response["Content-Disposition"] = 'attachment; filename="SOT_ID_CARDS.pdf"'
+    if action == "preview":
+        response["Content-Disposition"] = 'inline; filename="ID_CARDS.pdf"'
+    else:
+        response["Content-Disposition"] = 'attachment; filename="ID_CARDS.pdf"'
 
     return response

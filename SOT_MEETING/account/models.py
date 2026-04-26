@@ -42,7 +42,8 @@ class UserReg(models.Model):
 
     remarks = models.TextField(blank=True, null=True)
     bus_no = models.CharField(max_length=50, blank=True, null=True)
-
+    bus_to_station = models.CharField(max_length=50, blank=True, null=True)
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
