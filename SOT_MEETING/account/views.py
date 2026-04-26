@@ -1963,10 +1963,10 @@ def idcard(request):
         block.append(Spacer(1, TOP_SPACE))
 
         rows_data = [
-            ["Name", fit_text(user.name)],
-            ["Locality", fit_text(user.locality)],
-            ["Room", fit_text(user.acc_on_1_2)],
-            ["Bus", fit_text(getattr(user, "bus_no", ""))],
+            ["Name   :", fit_text(user.name)],
+            ["Locality  :", fit_text(user.locality)],
+            ["Room   :", fit_text(user.acc_on_1_2)],
+            ["Bus  :", fit_text(getattr(user, "bus_no", ""))],
         ]
 
         final_rows = []
