@@ -95,7 +95,7 @@
                         {% endif %}
                     </div>
                     <div class="col-12 d-flex flex-wrap gap-2 mt-2">
-                        <button type="submit" class="btn btn-primary">Save locality</button>
+                        <button id="submit-btn" type="submit" class="btn btn-primary">Save locality</button>
                         <a class="btn btn-outline-secondary" href="{% url 'home' %}">Back to dashboard</a>
                     </div>
                 </form>
@@ -161,6 +161,9 @@
         var teenagerCountField = document.getElementById('summary-teenager-count');
         var childrenCountField = document.getElementById('summary-children-count');
         var infantCountField = document.getElementById('summary-infant-count');
+        var paymentMethodField = document.getElementById('{{ locality_frm.payment_method.id_for_label }}');
+        var submitBtn = document.getElementById('submit-btn');
+        var form = submitBtn ? submitBtn.closest('form') : null;
 
         if (!localityField) {
             return;
@@ -206,6 +209,33 @@
                 .then(setSummary)
                 .catch(clearSummary);
         });
+
+        // Hide submit button and block form submission if payment method is 'pending'
+        function checkPaymentMethod() {
+            if (!paymentMethodField || !submitBtn) return;
+            var value = paymentMethodField.value ? paymentMethodField.value.toLowerCase() : '';
+            if (value === 'pending') {
+                submitBtn.style.display = 'none';
+                if (form) {
+                    form.addEventListener('submit', preventSubmit, { once: true });
+                }
+            } else {
+                submitBtn.style.display = '';
+                if (form) {
+                    form.removeEventListener('submit', preventSubmit);
+                }
+            }
+        }
+
+        function preventSubmit(e) {
+            e.preventDefault();
+            alert('Cannot submit: Payment method is pending.');
+        }
+
+        if (paymentMethodField) {
+            paymentMethodField.addEventListener('change', checkPaymentMethod);
+            checkPaymentMethod();
+        }
     })();
 </script>
 {% endblock %}
